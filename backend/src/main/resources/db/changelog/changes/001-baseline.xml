@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Baseline changeset: validates Liquibase wiring.
+        Entity tables (users, transactions, expense_templates) will be added in Phase 2.
+    -->
+    <changeSet id="001-baseline" author="pettycash">
+        <comment>Baseline changeset to validate Liquibase configuration</comment>
+        <sql>SELECT 1</sql>
+    </changeSet>
+
+</databaseChangeLog>

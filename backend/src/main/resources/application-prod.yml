@@ -1,0 +1,18 @@
+spring:
+  # PostgreSQL for production (via Docker)
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/pettycash}
+    username: ${SPRING_DATASOURCE_USERNAME:pettycash}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+
+  # JPA
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+
+  # Liquibase
+  liquibase:
+    enabled: true
