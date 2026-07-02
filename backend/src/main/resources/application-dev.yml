@@ -1,0 +1,39 @@
+spring:
+  # H2 in-memory for local development
+  datasource:
+    url: jdbc:h2:mem:pettycash_dev;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  # H2 Console
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  # JPA
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+
+  # Liquibase
+  liquibase:
+    enabled: true
+
+app:
+  security:
+    demo-login-enabled: true
+    allowed-domain: ""
+    google:
+      client-id: ${GOOGLE_CLIENT_ID:}
+    jwt:
+      secret: ${JWT_SECRET:defaultsecretkeythatislongerthan32charactersforhs256signatureverificationkey}
+      expiration-hours: 8
+  google:
+    drive:
+      private-key: ${GOOGLE_DRIVE_PRIVATE_KEY:}
+      client-email: ${GOOGLE_DRIVE_CLIENT_EMAIL:}
+      parent-folder-id: ${GOOGLE_DRIVE_PARENT_FOLDER_ID:}
