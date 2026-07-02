@@ -35,3 +35,6 @@ pgdata/
 # ===== OS =====
 .DS_Store
 *.pid
+
+# ===== Agent Workspace =====
+.agents/
