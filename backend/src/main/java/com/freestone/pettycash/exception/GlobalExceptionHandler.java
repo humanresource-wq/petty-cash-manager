@@ -41,6 +41,17 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("BAD_REQUEST", ex.getMessage()));
     }
 
+    @ExceptionHandler({
+            org.springframework.security.core.userdetails.UsernameNotFoundException.class,
+            org.springframework.security.authentication.BadCredentialsException.class,
+            org.springframework.security.core.AuthenticationException.class
+    })
+    public ResponseEntity<ErrorResponse> handleAuthentication(Exception ex) {
+        log.warn("Authentication failed: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ErrorResponse("UNAUTHORIZED", ex.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneral(Exception ex) {
         log.error("Unexpected error", ex);

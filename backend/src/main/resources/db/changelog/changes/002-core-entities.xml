@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="002-core-entities" author="pettycash">
+        <!-- 1. Users table -->
+        <createTable tableName="users">
+            <column name="id" type="varchar(100)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="email" type="varchar(150)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="name" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="role" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+        <createIndex indexName="idx_users_email" tableName="users">
+            <column name="email"/>
+        </createIndex>
+
+        <!-- 2. Categories table -->
+        <createTable tableName="categories">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(100)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+
+        <!-- 3. Subcategories table -->
+        <createTable tableName="subcategories">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="category_id" type="bigint">
+                <constraints nullable="false" foreignKeyName="fk_subcategory_category" referencedTableName="categories" referencedColumnNames="id" deleteCascade="true"/>
+            </column>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+        <addUniqueConstraint columnNames="category_id, name" constraintName="uq_category_subcategory" tableName="subcategories"/>
+
+        <!-- 4. CashBoxes table -->
+        <createTable tableName="cash_boxes">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="balance" type="numeric(12,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="low_threshold" type="numeric(12,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="version" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- 5. Transactions table -->
+        <createTable tableName="transactions">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="transaction_no" type="varchar(50)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="type" type="varchar(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="amount" type="numeric(12,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="date" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="timestamp" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+            <column name="payer" type="varchar(150)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="payee" type="varchar(150)"/>
+            <column name="category_id" type="bigint">
+                <constraints foreignKeyName="fk_transaction_category" referencedTableName="categories" referencedColumnNames="id"/>
+            </column>
+            <column name="subcategory_id" type="bigint">
+                <constraints foreignKeyName="fk_transaction_subcategory" referencedTableName="subcategories" referencedColumnNames="id"/>
+            </column>
+            <column name="receipt_status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="receipt_file_id" type="varchar(100)"/>
+            <column name="receipt_name" type="varchar(255)"/>
+            <column name="voucher_file_id" type="varchar(100)"/>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+
+        <!-- 6. ExpenseTemplates table -->
+        <createTable tableName="expense_templates">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(100)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="category" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="varchar(255)"/>
+            <column name="amount" type="numeric(12,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="receipt_required" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="003-seed-data" author="pettycash">
+        <!-- Seed single row in cash_boxes -->
+        <insert tableName="cash_boxes">
+            <column name="id" valueNumeric="1"/>
+            <column name="balance" valueNumeric="0.00"/>
+            <column name="low_threshold" valueNumeric="2000.00"/>
+            <column name="version" valueNumeric="1"/>
+        </insert>
+
+        <!-- Seed 4 allowed logins (2 Admins, 2 Users) -->
+        <insert tableName="users">
+            <column name="id" value="google-sub-harsh"/>
+            <column name="email" value="harsh@example.com"/>
+            <column name="name" value="Harsh Kumar"/>
+            <column name="role" value="ADMIN"/>
+            <column name="status" value="ACTIVE"/>
+        </insert>
+        <insert tableName="users">
+            <column name="id" value="google-sub-priya"/>
+            <column name="email" value="priya@example.com"/>
+            <column name="name" value="Priya Sharma"/>
+            <column name="role" value="ADMIN"/>
+            <column name="status" value="ACTIVE"/>
+        </insert>
+        <insert tableName="users">
+            <column name="id" value="google-sub-tony"/>
+            <column name="email" value="tony@example.com"/>
+            <column name="name" value="Tony Stark"/>
+            <column name="role" value="USER"/>
+            <column name="status" value="ACTIVE"/>
+        </insert>
+        <insert tableName="users">
+            <column name="id" value="google-sub-employee"/>
+            <column name="email" value="employee@example.com"/>
+            <column name="name" value="Standard Employee"/>
+            <column name="role" value="USER"/>
+            <column name="status" value="ACTIVE"/>
+        </insert>
+
+        <!-- Seed default Category & Subcategory master data -->
+        <!-- Category: Travel & Conveyance -->
+        <insert tableName="categories">
+            <column name="id" valueNumeric="1"/>
+            <column name="name" value="Travel &amp; Conveyance"/>
+        </insert>
+        <insert tableName="subcategories">
+            <column name="name" value="Bus"/>
+            <column name="category_id" valueNumeric="1"/>
+        </insert>
+        <insert tableName="subcategories">
+            <column name="name" value="Auto"/>
+            <column name="category_id" valueNumeric="1"/>
+        </insert>
+        <insert tableName="subcategories">
+            <column name="name" value="Flight"/>
+            <column name="category_id" valueNumeric="1"/>
+        </insert>
+        <insert tableName="subcategories">
+            <column name="name" value="Train"/>
+            <column name="category_id" valueNumeric="1"/>
+        </insert>
+
+        <!-- Category: Pantry & Refreshments -->
+        <insert tableName="categories">
+            <column name="id" valueNumeric="2"/>
+            <column name="name" value="Pantry &amp; Refreshments"/>
+        </insert>
+        <insert tableName="subcategories">
+            <column name="name" value="Milk &amp; Tea"/>
+            <column name="category_id" valueNumeric="2"/>
+        </insert>
+        <insert tableName="subcategories">
+            <column name="name" value="Snacks"/>
+            <column name="category_id" valueNumeric="2"/>
+        </insert>
+        <insert tableName="subcategories">
+            <column name="name" value="Office Lunch"/>
+            <column name="category_id" valueNumeric="2"/>
+        </insert>
+
+        <!-- Category: Stationery -->
+        <insert tableName="categories">
+            <column name="id" valueNumeric="3"/>
+            <column name="name" value="Stationery"/>
+        </insert>
+        <insert tableName="subcategories">
+            <column name="name" value="Notebooks"/>
+            <column name="category_id" valueNumeric="3"/>
+        </insert>
+        <insert tableName="subcategories">
+            <column name="name" value="Pens &amp; Markers"/>
+            <column name="category_id" valueNumeric="3"/>
+        </insert>
+        <insert tableName="subcategories">
+            <column name="name" value="Printing Paper"/>
+            <column name="category_id" valueNumeric="3"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

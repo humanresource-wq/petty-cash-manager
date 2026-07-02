@@ -16,3 +16,18 @@ spring:
   # Liquibase
   liquibase:
     enabled: true
+
+app:
+  security:
+    demo-login-enabled: true
+    allowed-domain: ""
+    google:
+      client-id: "test-google-client-id"
+    jwt:
+      secret: "defaultsecretkeythatislongerthan32charactersforhs256signatureverificationkey"
+      expiration-hours: 8
+  google:
+    drive:
+      private-key: ""
+      client-email: ""
+      parent-folder-id: ""

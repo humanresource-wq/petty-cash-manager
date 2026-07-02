@@ -22,3 +22,18 @@ spring:
   # Liquibase
   liquibase:
     enabled: true
+
+app:
+  security:
+    demo-login-enabled: true
+    allowed-domain: ""
+    google:
+      client-id: ${GOOGLE_CLIENT_ID:}
+    jwt:
+      secret: ${JWT_SECRET:defaultsecretkeythatislongerthan32charactersforhs256signatureverificationkey}
+      expiration-hours: 8
+  google:
+    drive:
+      private-key: ${GOOGLE_DRIVE_PRIVATE_KEY:}
+      client-email: ${GOOGLE_DRIVE_CLIENT_EMAIL:}
+      parent-folder-id: ${GOOGLE_DRIVE_PARENT_FOLDER_ID:}
