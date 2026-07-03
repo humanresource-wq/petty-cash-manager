@@ -72,3 +72,22 @@ export interface AppConfig {
     email: string;
   }[];
 }
+
+export interface DashboardStatsResponse {
+  balance: number;
+  lowThreshold: number;
+  currentMonthSpent: number;
+  currentMonthSpentCount: number;
+  currentMonthAdded: number;
+  pendingReceiptsCount: number;
+  pendingReceiptsValue: number;
+  monthlyFlows: {
+    month: string;
+    spent: number;
+    added: number;
+  }[];
+  categorySpends: {
+    name: string;
+    value: number;
+  }[];
+}

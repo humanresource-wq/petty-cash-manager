@@ -1,6 +1,7 @@
 package com.freestone.pettycash.service;
 
 import com.freestone.pettycash.dto.CashBoxResponse;
+import com.freestone.pettycash.dto.DashboardStatsResponse;
 import com.freestone.pettycash.dto.TransactionRequest;
 import com.freestone.pettycash.dto.TransactionResponse;
 import com.freestone.pettycash.exception.InsufficientBalanceException;
@@ -219,5 +220,76 @@ public class TransactionService {
                 .orElseThrow(() -> new IllegalStateException("Cash Box system is not initialized"));
         box.setLowThreshold(threshold);
         return new CashBoxResponse(box.getBalance(), cashBoxRepository.save(box).getLowThreshold());
+    }
+
+    public DashboardStatsResponse getDashboardStats() {
+        CashBox box = cashBoxRepository.findById(1L)
+                .orElseThrow(() -> new IllegalStateException("Cash Box system is not initialized"));
+
+        LocalDate today = LocalDate.now();
+        LocalDate startOfMonth = today.withDayOfMonth(1);
+        LocalDate endOfMonth = today.plusMonths(1).withDayOfMonth(1).minusDays(1);
+
+        BigDecimal spentThisMonth = transactionRepository.sumAmountByTypeAndDateRange(
+                TransactionType.EXPENSE, startOfMonth, endOfMonth);
+        BigDecimal addedThisMonth = transactionRepository.sumAmountByTypeAndDateRange(
+                TransactionType.TOPUP, startOfMonth, endOfMonth);
+
+        List<PettyCashTransaction> allTransactions = transactionRepository.findAll();
+
+        long currentMonthSpentCount = allTransactions.stream()
+                .filter(t -> t.getType() == TransactionType.EXPENSE && !t.getDate().isBefore(startOfMonth) && !t.getDate().isAfter(endOfMonth))
+                .count();
+
+        long pendingReceiptsCount = allTransactions.stream()
+                .filter(t -> t.getType() == TransactionType.EXPENSE && t.getReceiptStatus() == ReceiptStatus.PENDING)
+                .count();
+
+        BigDecimal pendingReceiptsValue = allTransactions.stream()
+                .filter(t -> t.getType() == TransactionType.EXPENSE && t.getReceiptStatus() == ReceiptStatus.PENDING)
+                .map(PettyCashTransaction::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // Trend data: last 6 months (including current month)
+        java.util.List<DashboardStatsResponse.MonthlyFlow> monthlyFlows = new java.util.ArrayList<>();
+        for (int i = 5; i >= 0; i--) {
+            LocalDate targetMonth = today.minusMonths(i);
+            LocalDate start = targetMonth.withDayOfMonth(1);
+            LocalDate end = targetMonth.plusMonths(1).withDayOfMonth(1).minusDays(1);
+
+            BigDecimal monthlySpent = transactionRepository.sumAmountByTypeAndDateRange(
+                    TransactionType.EXPENSE, start, end);
+            BigDecimal monthlyAdded = transactionRepository.sumAmountByTypeAndDateRange(
+                    TransactionType.TOPUP, start, end);
+
+            String label = targetMonth.getMonth().getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH);
+            monthlyFlows.add(new DashboardStatsResponse.MonthlyFlow(label, monthlySpent, monthlyAdded));
+        }
+
+        // All-time Category Spends
+        java.util.Map<String, BigDecimal> catSpendsMap = new java.util.HashMap<>();
+        allTransactions.stream()
+                .filter(t -> t.getType() == TransactionType.EXPENSE && t.getCategory() != null)
+                .forEach(t -> {
+                    String catName = t.getCategory().getName();
+                    catSpendsMap.put(catName, catSpendsMap.getOrDefault(catName, BigDecimal.ZERO).add(t.getAmount()));
+                });
+
+        java.util.List<DashboardStatsResponse.CategorySpend> categorySpends = catSpendsMap.entrySet().stream()
+                .map(e -> new DashboardStatsResponse.CategorySpend(e.getKey(), e.getValue()))
+                .sorted((a, b) -> b.value().compareTo(a.value()))
+                .toList();
+
+        return new DashboardStatsResponse(
+                box.getBalance(),
+                box.getLowThreshold(),
+                spentThisMonth,
+                currentMonthSpentCount,
+                addedThisMonth,
+                pendingReceiptsCount,
+                pendingReceiptsValue,
+                monthlyFlows,
+                categorySpends
+        );
     }
 }

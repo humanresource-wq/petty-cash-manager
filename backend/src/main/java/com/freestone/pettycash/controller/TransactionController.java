@@ -1,6 +1,7 @@
 package com.freestone.pettycash.controller;
 
 import com.freestone.pettycash.dto.CashBoxResponse;
+import com.freestone.pettycash.dto.DashboardStatsResponse;
 import com.freestone.pettycash.dto.TransactionRequest;
 import com.freestone.pettycash.dto.TransactionResponse;
 import com.freestone.pettycash.model.ReceiptStatus;
@@ -33,6 +34,11 @@ public class TransactionController {
     @GetMapping
     public ResponseEntity<List<TransactionResponse>> listTransactions() {
         return ResponseEntity.ok(transactionService.listAllTransactions());
+    }
+
+    @GetMapping("/dashboard-stats")
+    public ResponseEntity<DashboardStatsResponse> getDashboardStats() {
+        return ResponseEntity.ok(transactionService.getDashboardStats());
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

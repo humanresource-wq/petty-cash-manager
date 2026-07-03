@@ -11,6 +11,7 @@ import type {
   ReceiptStatus,
   UserStatus,
   Role,
+  DashboardStatsResponse,
 } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
@@ -75,6 +76,7 @@ export const api = {
       client.put<CashBoxResponse>('/transactions/cashbox/threshold', null, {
         params: { threshold },
       }).then((r) => r.data),
+    getDashboardStats: () => client.get<DashboardStatsResponse>('/transactions/dashboard-stats').then((r) => r.data),
   },
 
   categories: {

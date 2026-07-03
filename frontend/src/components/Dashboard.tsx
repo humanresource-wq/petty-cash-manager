@@ -8,6 +8,7 @@ import type {
   UserResponse,
   CashBoxResponse,
   ReceiptStatus,
+  DashboardStatsResponse,
 } from '../types';
 import { TransactionModal } from './TransactionModal';
 import { AdminPanel } from './AdminPanel';
@@ -41,6 +42,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [templates, setTemplates] = useState<ExpenseTemplate[]>([]);
   const [cashbox, setCashbox] = useState<CashBoxResponse>({ balance: 0, lowThreshold: 2000 });
+  const [dashboardStats, setDashboardStats] = useState<DashboardStatsResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Filters for Transactions Tab
@@ -62,16 +64,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      const [txData, catData, tempData, cashData] = await Promise.all([
+      const [txData, catData, tempData, statsData] = await Promise.all([
         api.transactions.list(),
         api.categories.list(),
         api.templates.list(),
-        api.transactions.getCashbox(),
+        api.transactions.getDashboardStats(),
       ]);
       setTransactions(txData);
       setCategories(catData);
       setTemplates(tempData);
-      setCashbox(cashData);
+      setDashboardStats(statsData);
+      setCashbox({ balance: statsData.balance, lowThreshold: statsData.lowThreshold });
     } catch (err) {
       showToast('❌ Failed to fetch database state: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
@@ -117,20 +120,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
       fetchInitialData(); // refresh list to load voucherFileId
     } catch (err) {
       showToast('❌ Failed to generate voucher: ' + (err instanceof Error ? err.message : String(err)));
-    }
-  };
-
-  const handleDeleteTransaction = async (_id: number) => {
-    if (!confirm('Are you sure you want to delete this transaction ledger entry?')) return;
-    try {
-      // In a ledger system deleting might be restricted, but backend JPA repositories support standard deletion if needed.
-      // Since JPA support exists, we can add a delete endpoint or handle it.
-      // Wait, we didn't add a DELETE transaction endpoint in TransactionController.java. Let's see if we did.
-      // No, TransactionController has no DELETE transaction endpoint because cashbooks are audits and should not be deleted.
-      // However, we can warn the user that ledger audits are immutable and cannot be deleted!
-      showToast('🔒 Ledger audit entries are immutable and cannot be deleted for audit consistency.');
-    } catch (err) {
-      showToast('❌ Failed.');
     }
   };
 
@@ -190,78 +179,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
   };
 
   // --- Derived Calculations ---
-  const currentMonthKey = () => {
-    const now = new Date();
-    return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  };
-
   const currentMonthName = () => {
     return new Date().toLocaleDateString('en-IN', { month: 'long' });
   };
 
   const currentMonthSpent = () => {
-    const mk = currentMonthKey();
-    return transactions
-      .filter((t) => t.type === 'EXPENSE' && t.date.startsWith(mk))
-      .reduce((s, t) => s + t.amount, 0);
+    return dashboardStats?.currentMonthSpent ?? 0;
   };
 
   const currentMonthAdded = () => {
-    const mk = currentMonthKey();
-    return transactions
-      .filter((t) => t.type === 'TOPUP' && t.date.startsWith(mk))
-      .reduce((s, t) => s + t.amount, 0);
+    return dashboardStats?.currentMonthAdded ?? 0;
   };
 
   const pendingReceiptsCount = () => {
-    return transactions.filter((t) => t.type === 'EXPENSE' && t.receiptStatus === 'PENDING').length;
+    return dashboardStats?.pendingReceiptsCount ?? 0;
   };
 
   const pendingReceiptsValue = () => {
-    return transactions
-      .filter((t) => t.type === 'EXPENSE' && t.receiptStatus === 'PENDING')
-      .reduce((s, t) => s + t.amount, 0);
+    return dashboardStats?.pendingReceiptsValue ?? 0;
   };
 
   // --- Charts Data ---
   const getTrendData = () => {
-    const lastNMonths = (n: number) => {
-      const out = [];
-      const d = new Date();
-      d.setDate(1);
-      for (let i = n - 1; i >= 0; i--) {
-        const x = new Date(d.getFullYear(), d.getMonth() - i, 1);
-        const mk = x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0');
-        out.push(mk);
-      }
-      return out;
-    };
-
-    const months = lastNMonths(6);
-    return months.map((m) => {
-      const label = new Date(m + '-01T00:00').toLocaleDateString('en-IN', { month: 'short' });
-      const spent = transactions
-        .filter((t) => t.type === 'EXPENSE' && t.date.startsWith(m))
-        .reduce((s, t) => s + t.amount, 0);
-      const added = transactions
-        .filter((t) => t.type === 'TOPUP' && t.date.startsWith(m))
-        .reduce((s, t) => s + t.amount, 0);
-      return { month: label, Spent: spent, Added: added };
-    });
+    if (!dashboardStats) return [];
+    return dashboardStats.monthlyFlows.map((f) => ({
+      month: f.month,
+      Spent: f.spent,
+      Added: f.added,
+    }));
   };
 
   const getPieData = () => {
-    const summary: Record<string, number> = {};
-    transactions
-      .filter((t) => t.type === 'EXPENSE' && t.categoryName)
-      .forEach((t) => {
-        const cat = t.categoryName as string;
-        summary[cat] = (summary[cat] || 0) + t.amount;
-      });
-
-    return Object.entries(summary)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
+    if (!dashboardStats) return [];
+    return dashboardStats.categorySpends;
   };
 
   const getTopSpendAreas = () => {
@@ -270,7 +220,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
     return pie.map((p) => ({
       name: p.name,
       value: p.value,
-      percentage: (p.value / max) * 100,
+      percentage: (p.value / max) * 105, // slightly adjusted scaling
     }));
   };
 
@@ -784,18 +734,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                               {currentUser.role === 'ADMIN' && t.type === 'EXPENSE' && (
                                 <button
                                   onClick={() => handleToggleReceiptStatus(t.id, t.receiptStatus)}
-                                  className="text-[10px] text-slate-500 hover:text-indigo-400 border border-slate-800 hover:border-indigo-900 rounded px-2 py-0.5 transition mr-2"
+                                  className="text-[10px] text-slate-500 hover:text-indigo-400 border border-slate-800 hover:border-indigo-900 rounded px-2 py-0.5 transition"
                                   title="Toggles receipt validation status"
                                 >
                                   Verify Status
                                 </button>
                               )}
-                              <button
-                                onClick={() => handleDeleteTransaction(t.id)}
-                                className="text-slate-600 hover:text-slate-400 text-xs px-2"
-                              >
-                                🗑
-                              </button>
                             </td>
                           </tr>
                         ))}
