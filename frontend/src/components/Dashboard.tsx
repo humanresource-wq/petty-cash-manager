@@ -50,12 +50,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
   const [filterType, setFilterType] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<string>('');
   const [filterReceipt, setFilterReceipt] = useState<string>('');
-  const [filterMonth, setFilterMonth] = useState<string>('');
+  const [filterStartDate, setFilterStartDate] = useState<string>('');
+  const [filterEndDate, setFilterEndDate] = useState<string>('');
+
+  // Pagination for Transactions Ledger
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 10;
+
+  // Reset pagination to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterType, filterCategory, filterReceipt, filterStartDate, filterEndDate]);
 
   // Modals
   const [isTxModalOpen, setIsTxModalOpen] = useState<boolean>(false);
   const [txModalDefaultType, setTxModalDefaultType] = useState<'EXPENSE' | 'TOPUP'>('EXPENSE');
   const [uploadingReceiptTxId, setUploadingReceiptTxId] = useState<number | null>(null);
+
+  // Previews
+  const [previewTx, setPreviewTx] = useState<TransactionResponse | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState<boolean>(false);
 
   useEffect(() => {
     fetchInitialData();
@@ -137,11 +152,83 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
 
   const handleReceiptBadgeClick = (tx: TransactionResponse) => {
     if (tx.receiptStatus === 'RECEIVED') {
-      handleDownloadReceipt(tx.id, tx.receiptName || 'receipt');
+      handleViewReceipt(tx);
     } else if (tx.receiptStatus === 'PENDING') {
       // Click pending badge to trigger file upload dialog
       setUploadingReceiptTxId(tx.id);
       document.getElementById('receipt-badge-file-uploader')?.click();
+    }
+  };
+
+  const handleViewReceipt = async (tx: TransactionResponse) => {
+    if (!tx.receiptName) return;
+    setPreviewTx(tx);
+    setPreviewLoading(true);
+    try {
+      const blob = await api.transactions.downloadReceipt(tx.id);
+      const isPdf = tx.receiptName.toLowerCase().endsWith('.pdf');
+      const mimeType = isPdf ? 'application/pdf' : 'image/png';
+      const typedBlob = new Blob([blob], { type: mimeType });
+      const url = URL.createObjectURL(typedBlob);
+      setPreviewUrl(url);
+    } catch (err) {
+      showToast('❌ Failed to load receipt preview: ' + (err instanceof Error ? err.message : String(err)));
+      setPreviewTx(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleClosePreview = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewUrl(null);
+    setPreviewTx(null);
+  };
+
+  const handleDownloadInPreview = () => {
+    if (previewTx) {
+      handleDownloadReceipt(previewTx.id, previewTx.receiptName || 'receipt');
+    }
+  };
+
+  const handleExport = async (format: 'csv' | 'pdf') => {
+    showToast(`📥 Preparing statement export as ${format.toUpperCase()}...`);
+    try {
+      const params = {
+        startDate: filterStartDate || undefined,
+        endDate: filterEndDate || undefined,
+        type: filterType || undefined,
+        categoryName: filterCategory || undefined,
+        receiptStatus: filterReceipt || undefined,
+        search: searchQuery || undefined,
+      };
+
+      let blobData;
+      let filename;
+      const today = new Date().toISOString().split('T')[0];
+
+      if (format === 'csv') {
+        blobData = await api.transactions.exportCsv(params);
+        filename = `transactions-report-${today}.csv`;
+      } else {
+        blobData = await api.transactions.exportPdf(params);
+        filename = `ledger-summary-${today}.pdf`;
+      }
+
+      const url = URL.createObjectURL(new Blob([blobData]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
+      showToast(`✅ Exported successfully! Check your downloads.`);
+    } catch (err) {
+      showToast('❌ Export failed: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -246,10 +333,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
     if (filterReceipt) {
       list = list.filter((t) => t.receiptStatus === filterReceipt);
     }
-    if (filterMonth) {
-      list = list.filter((t) => t.date.startsWith(filterMonth));
+    if (filterStartDate) {
+      list = list.filter((t) => t.date >= filterStartDate);
+    }
+    if (filterEndDate) {
+      list = list.filter((t) => t.date <= filterEndDate);
     }
     return list;
+  };
+
+  const getPaginatedTransactions = () => {
+    const list = getFilteredTransactions();
+    const startIndex = (currentPage - 1) * pageSize;
+    return list.slice(startIndex, startIndex + pageSize);
   };
 
   return (
@@ -642,12 +738,42 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                     <option value="RECEIVED">Receipt uploaded</option>
                     <option value="NA">No receipt required</option>
                   </select>
-                  <input
-                    type="month"
-                    value={filterMonth}
-                    onChange={(e) => setFilterMonth(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500"
-                  />
+                  <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase select-none">From</span>
+                    <input
+                      type="date"
+                      value={filterStartDate}
+                      onChange={(e) => setFilterStartDate(e.target.value)}
+                      className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
+                    />
+                    <span className="text-[10px] text-slate-500 font-bold uppercase select-none">To</span>
+                    <input
+                      type="date"
+                      value={filterEndDate}
+                      onChange={(e) => setFilterEndDate(e.target.value)}
+                      className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Export Buttons */}
+                  <div className="flex gap-2 shrink-0 ml-auto">
+                    <button
+                      type="button"
+                      onClick={() => handleExport('csv')}
+                      className="bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-350 hover:text-white font-bold text-xs py-2 px-3 rounded-lg flex items-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
+                      title="Download spreadsheet CSV"
+                    >
+                      📊 Export CSV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExport('pdf')}
+                      className="bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-350 hover:text-white font-bold text-xs py-2 px-3 rounded-lg flex items-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
+                      title="Download summary statement PDF"
+                    >
+                      📄 Export PDF Summary
+                    </button>
+                  </div>
                 </div>
 
                 {/* Ledger Grid Table */}
@@ -667,7 +793,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                         </tr>
                       </thead>
                       <tbody>
-                        {getFilteredTransactions().map((t) => (
+                        {getPaginatedTransactions().map((t) => (
                           <tr key={t.id} className="border-b border-slate-900 hover:bg-slate-900/30">
                             <td className="p-3 text-slate-300 font-medium whitespace-nowrap">{t.date}</td>
                             <td className="p-3 text-slate-400 font-mono">{t.transactionNo}</td>
@@ -753,6 +879,57 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Pagination Footer */}
+                  {getFilteredTransactions().length > 0 && (
+                    <div className="flex items-center justify-between p-4 border-t border-slate-800/60 bg-slate-950/20 text-xs text-slate-400">
+                      <div>
+                        Showing <span className="font-bold text-slate-200">{Math.min(getFilteredTransactions().length, (currentPage - 1) * pageSize + 1)}</span> to{' '}
+                        <span className="font-bold text-slate-200">
+                          {Math.min(getFilteredTransactions().length, currentPage * pageSize)}
+                        </span>{' '}
+                        of <span className="font-bold text-slate-200">{getFilteredTransactions().length}</span> entries
+                      </div>
+                      
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                          className="px-2.5 py-1 rounded bg-slate-950 border border-slate-800 text-[10px] font-bold text-slate-300 hover:text-white hover:bg-slate-900 transition disabled:opacity-40 disabled:cursor-not-allowed select-none"
+                        >
+                          Previous
+                        </button>
+                        
+                        {Array.from({ length: Math.ceil(getFilteredTransactions().length / pageSize) }).map((_, idx) => {
+                          const pageNum = idx + 1;
+                          return (
+                            <button
+                              key={pageNum}
+                              type="button"
+                              onClick={() => setCurrentPage(pageNum)}
+                              className={`w-6 h-6 rounded text-[10px] font-bold transition select-none flex items-center justify-center ${
+                                currentPage === pageNum
+                                  ? 'bg-indigo-600 text-white shadow-md'
+                                  : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-900'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                        
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage(prev => Math.min(Math.ceil(getFilteredTransactions().length / pageSize), prev + 1))}
+                          disabled={currentPage === Math.ceil(getFilteredTransactions().length / pageSize)}
+                          className="px-2.5 py-1 rounded bg-slate-950 border border-slate-800 text-[10px] font-bold text-slate-300 hover:text-white hover:bg-slate-900 transition disabled:opacity-40 disabled:cursor-not-allowed select-none"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </section>
             )}
@@ -794,6 +971,85 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
         toast={showToast}
         defaultType={txModalDefaultType}
       />
+
+      {/* Inline Receipt Previewer Modal */}
+      {previewTx && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-99 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-950/50">
+              <div className="flex flex-col gap-1 min-w-0">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                  Auditing Staged Receipt · {previewTx.transactionNo}
+                </span>
+                <h3 className="text-sm font-extrabold text-white truncate max-w-[400px]">
+                  {previewTx.receiptName || 'Attached Invoice Document'}
+                </h3>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleDownloadInPreview}
+                  className="py-1.5 px-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-350 hover:text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1.5"
+                  title="Save copy to local disk"
+                >
+                  📥 Download Copy
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClosePreview}
+                  className="w-8 h-8 rounded-full bg-slate-950 hover:bg-slate-850 text-slate-400 hover:text-white flex items-center justify-center transition font-bold"
+                  title="Close Dialog"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex-1 flex flex-col items-center justify-center overflow-auto min-h-[40vh] bg-slate-950/20">
+              {previewLoading ? (
+                <div className="flex flex-col items-center gap-3">
+                  <span className="w-8 h-8 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></span>
+                  <span className="text-xs text-slate-500 font-semibold">Fetching document from Google Drive...</span>
+                </div>
+              ) : previewUrl ? (
+                previewTx.receiptName?.toLowerCase().endsWith('.pdf') ? (
+                  <iframe
+                    src={previewUrl}
+                    title="Inline PDF Document Viewer"
+                    className="w-full h-[60vh] rounded-lg border border-slate-800 bg-slate-950"
+                  />
+                ) : (
+                  <div className="w-full h-[60vh] flex items-center justify-center p-2">
+                    <img
+                      src={previewUrl}
+                      alt="Inline Receipt View"
+                      className="max-w-full max-h-full object-contain rounded-lg border border-slate-800 bg-slate-950 shadow-inner"
+                    />
+                  </div>
+                )
+              ) : (
+                <div className="text-center text-slate-500">
+                  <div className="text-3xl mb-2">⚠️</div>
+                  <div className="text-xs font-semibold">Failed to load content preview for this file format.</div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-800 bg-slate-950/50 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={handleClosePreview}
+                className="py-2 px-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold shadow-lg transition"
+              >
+                Close Auditing View
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

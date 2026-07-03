@@ -77,6 +77,22 @@ export const api = {
         params: { threshold },
       }).then((r) => r.data),
     getDashboardStats: () => client.get<DashboardStatsResponse>('/transactions/dashboard-stats').then((r) => r.data),
+    exportCsv: (params?: {
+      startDate?: string;
+      endDate?: string;
+      type?: string;
+      categoryName?: string;
+      receiptStatus?: string;
+      search?: string;
+    }) => client.get('/transactions/export/csv', { params, responseType: 'blob' }).then((r) => r.data),
+    exportPdf: (params?: {
+      startDate?: string;
+      endDate?: string;
+      type?: string;
+      categoryName?: string;
+      receiptStatus?: string;
+      search?: string;
+    }) => client.get('/transactions/export/pdf', { params, responseType: 'blob' }).then((r) => r.data),
   },
 
   categories: {

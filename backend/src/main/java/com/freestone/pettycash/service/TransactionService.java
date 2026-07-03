@@ -292,4 +292,35 @@ public class TransactionService {
                 categorySpends
         );
     }
+
+    public List<PettyCashTransaction> getFilteredTransactions(
+            LocalDate startDate,
+            LocalDate endDate,
+            TransactionType type,
+            String categoryName,
+            ReceiptStatus receiptStatus,
+            String search
+    ) {
+        List<PettyCashTransaction> list = transactionRepository.findAllByOrderByDateDescIdDesc();
+
+        return list.stream()
+                .filter(t -> startDate == null || !t.getDate().isBefore(startDate))
+                .filter(t -> endDate == null || !t.getDate().isAfter(endDate))
+                .filter(t -> type == null || t.getType() == type)
+                .filter(t -> categoryName == null || categoryName.isBlank() ||
+                        (t.getCategory() != null && t.getCategory().getName().equalsIgnoreCase(categoryName)))
+                .filter(t -> receiptStatus == null || t.getReceiptStatus() == receiptStatus)
+                .filter(t -> {
+                    if (search == null || search.isBlank()) {
+                        return true;
+                    }
+                    String q = search.toLowerCase();
+                    boolean descMatch = t.getDescription() != null && t.getDescription().toLowerCase().contains(q);
+                    boolean payeeMatch = t.getPayee() != null && t.getPayee().toLowerCase().contains(q);
+                    boolean txNoMatch = t.getTransactionNo() != null && t.getTransactionNo().toLowerCase().contains(q);
+                    boolean payerMatch = t.getPayer() != null && t.getPayer().toLowerCase().contains(q);
+                    return descMatch || payeeMatch || txNoMatch || payerMatch;
+                })
+                .toList();
+    }
 }

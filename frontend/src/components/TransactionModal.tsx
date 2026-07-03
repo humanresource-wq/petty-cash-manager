@@ -32,8 +32,27 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<number | ''>('');
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | ''>('');
   const [file, setFile] = useState<File | null>(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [dragOver, setDragOver] = useState<boolean>(false);
+
+  // Staged file preview URL generator and cleanup hook
+  useEffect(() => {
+    if (!file) {
+      setFilePreviewUrl(null);
+      return;
+    }
+
+    if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+      const url = URL.createObjectURL(file);
+      setFilePreviewUrl(url);
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    } else {
+      setFilePreviewUrl(null);
+    }
+  }, [file]);
 
   // Default to today's date on open
   useEffect(() => {
@@ -340,15 +359,63 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 onChange={handleFileChange}
               />
               {file ? (
-                <>
-                  <div className="text-2xl mb-1">📄</div>
-                  <div className="text-xs font-bold text-emerald-400 max-w-[240px] truncate">
+                <div className="w-full flex flex-col items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  {file.type.startsWith('image/') && filePreviewUrl ? (
+                    <div className="relative group max-h-32 border border-slate-800 rounded-lg p-1 bg-slate-950/60 overflow-hidden flex items-center justify-center">
+                      <img
+                        src={filePreviewUrl}
+                        alt="Receipt Preview"
+                        className="max-h-28 object-contain rounded"
+                      />
+                    </div>
+                  ) : file.type === 'application/pdf' && filePreviewUrl ? (
+                    <div className="w-full max-w-[280px] flex flex-col items-center gap-2 border border-slate-800 rounded-lg p-3 bg-slate-950/80">
+                      <div className="flex items-center gap-3 w-full">
+                        <div className="text-red-500 font-black text-2xl tracking-tighter bg-red-950/30 border border-red-900/40 rounded px-2 py-1 select-none">
+                          PDF
+                        </div>
+                        <div className="text-left flex-1 min-w-0">
+                          <div className="text-xs font-bold text-slate-200 truncate">{file.name}</div>
+                          <div className="text-[10px] text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</div>
+                        </div>
+                      </div>
+                      <iframe
+                        src={filePreviewUrl}
+                        title="PDF Preview"
+                        className="w-full h-24 rounded border border-slate-900 bg-slate-900 pointer-events-none"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-full max-w-[280px] flex items-center p-3 rounded-lg border border-slate-800 bg-slate-950/80 gap-3">
+                      <div className="text-3xl select-none">📄</div>
+                      <div className="text-left flex-1 min-w-0">
+                        <div className="text-xs font-bold text-slate-200 truncate">{file.name}</div>
+                        <div className="text-[10px] text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="text-xs font-semibold text-emerald-400 mt-1 max-w-[240px] truncate">
                     {file.name}
                   </div>
-                  <div className="text-[10px] text-slate-500">
-                    {(file.size / 1024 / 1024).toFixed(2)} MB · Tap to replace
+                  
+                  <div className="flex gap-2 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setFile(null)}
+                      className="text-[10px] text-red-400 hover:text-red-300 font-bold bg-red-950/40 border border-red-900/40 rounded-md px-2.5 py-1 transition flex items-center gap-1"
+                    >
+                      ✕ Remove
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('tx-receipt-file')?.click()}
+                      className="text-[10px] text-slate-300 hover:text-white font-bold bg-slate-900 border border-slate-800 rounded-md px-2.5 py-1 transition"
+                    >
+                      Replace
+                    </button>
                   </div>
-                </>
+                </div>
               ) : (
                 <>
                   <div className="text-2xl mb-1 text-slate-500">📥</div>
