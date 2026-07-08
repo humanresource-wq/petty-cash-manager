@@ -1,12 +1,15 @@
 package com.freestone.pettycash.controller;
 
 import com.freestone.pettycash.dto.CashBoxResponse;
+import com.freestone.pettycash.dto.DashboardStatsResponse;
 import com.freestone.pettycash.dto.TransactionRequest;
 import com.freestone.pettycash.dto.TransactionResponse;
+import com.freestone.pettycash.model.PettyCashTransaction;
 import com.freestone.pettycash.model.ReceiptStatus;
 import com.freestone.pettycash.model.Role;
 import com.freestone.pettycash.model.TransactionType;
 import com.freestone.pettycash.security.UserPrincipal;
+import com.freestone.pettycash.service.ReportService;
 import com.freestone.pettycash.service.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -29,10 +33,56 @@ import java.util.List;
 public class TransactionController {
 
     private final TransactionService transactionService;
+    private final ReportService reportService;
 
     @GetMapping
     public ResponseEntity<List<TransactionResponse>> listTransactions() {
         return ResponseEntity.ok(transactionService.listAllTransactions());
+    }
+
+    @GetMapping("/dashboard-stats")
+    public ResponseEntity<DashboardStatsResponse> getDashboardStats() {
+        return ResponseEntity.ok(transactionService.getDashboardStats());
+    }
+
+    @GetMapping("/export/csv")
+    public ResponseEntity<byte[]> exportCsv(
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) TransactionType type,
+            @RequestParam(required = false) String categoryName,
+            @RequestParam(required = false) ReceiptStatus receiptStatus,
+            @RequestParam(required = false) String search
+    ) {
+        List<PettyCashTransaction> list = transactionService.getFilteredTransactions(
+                startDate, endDate, type, categoryName, receiptStatus, search);
+        byte[] csvBytes = reportService.generateCsvReport(list);
+
+        String filename = "transactions-report-" + LocalDate.now() + ".csv";
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .body(csvBytes);
+    }
+
+    @GetMapping("/export/pdf")
+    public ResponseEntity<byte[]> exportPdf(
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) TransactionType type,
+            @RequestParam(required = false) String categoryName,
+            @RequestParam(required = false) ReceiptStatus receiptStatus,
+            @RequestParam(required = false) String search
+    ) {
+        List<PettyCashTransaction> list = transactionService.getFilteredTransactions(
+                startDate, endDate, type, categoryName, receiptStatus, search);
+        byte[] pdfBytes = reportService.generatePdfSummaryReport(list, startDate, endDate);
+
+        String filename = "ledger-summary-" + LocalDate.now() + ".pdf";
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .body(pdfBytes);
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
