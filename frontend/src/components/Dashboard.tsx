@@ -71,6 +71,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
 
   // Filters for Transactions Tab
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchInput, setSearchInput] = useState<string>('');
   const [filterType, setFilterType] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<string>('');
   const [filterStartDate, setFilterStartDate] = useState<string>('');
@@ -84,6 +85,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, filterType, filterCategory, filterStartDate, filterEndDate]);
+
+
 
   // Modals
   const [isTxModalOpen, setIsTxModalOpen] = useState<boolean>(false);
@@ -318,6 +321,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
   );
 
   const handleClearFilters = () => {
+    setSearchInput('');
     setSearchQuery('');
     setFilterType('');
     setFilterCategory('');
@@ -667,9 +671,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-wrap gap-3 items-center">
                   <input
                     type="search"
-                    placeholder="🔍 Search description, payer email, reference no..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="🔍 Search description, payer email, reference no... (Press Enter to search)"
+                    value={searchInput}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSearchInput(val);
+                      if (val === '') {
+                        setSearchQuery('');
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        setSearchQuery(searchInput);
+                      }
+                    }}
                     className="bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white placeholder-slate-650 focus:outline-none focus:border-indigo-500 flex-1 min-w-[200px]"
                   />
                   <select

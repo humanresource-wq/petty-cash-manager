@@ -46,20 +46,20 @@ public interface TransactionRepository extends JpaRepository<PettyCashTransactio
            "WHERE (:startDate IS NULL OR t.date >= :startDate) " +
            "AND (:endDate IS NULL OR t.date <= :endDate) " +
            "AND (:type IS NULL OR t.type = :type) " +
-           "AND (:categoryName IS NULL OR LOWER(t.category.name) = LOWER(:categoryName)) " +
-           "AND (:search IS NULL OR LOWER(t.description) LIKE LOWER(CONCAT('%', :search, '%')) " +
-           "OR LOWER(t.payee) LIKE LOWER(CONCAT('%', :search, '%')) " +
-           "OR LOWER(t.transactionNo) LIKE LOWER(CONCAT('%', :search, '%')) " +
-           "OR LOWER(t.payer) LIKE LOWER(CONCAT('%', :search, '%')))",
+           "AND (:categoryName IS NULL OR LOWER(t.category.name) = :categoryName) " +
+           "AND (:search IS NULL OR LOWER(t.description) LIKE :search " +
+           "OR LOWER(t.payee) LIKE :search " +
+           "OR LOWER(t.transactionNo) LIKE :search " +
+           "OR LOWER(t.payer) LIKE :search)",
            countQuery = "SELECT COUNT(t) FROM PettyCashTransaction t " +
            "WHERE (:startDate IS NULL OR t.date >= :startDate) " +
            "AND (:endDate IS NULL OR t.date <= :endDate) " +
            "AND (:type IS NULL OR t.type = :type) " +
-           "AND (:categoryName IS NULL OR LOWER(t.category.name) = LOWER(:categoryName)) " +
-           "AND (:search IS NULL OR LOWER(t.description) LIKE LOWER(CONCAT('%', :search, '%')) " +
-           "OR LOWER(t.payee) LIKE LOWER(CONCAT('%', :search, '%')) " +
-           "OR LOWER(t.transactionNo) LIKE LOWER(CONCAT('%', :search, '%')) " +
-           "OR LOWER(t.payer) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "AND (:categoryName IS NULL OR LOWER(t.category.name) = :categoryName) " +
+           "AND (:search IS NULL OR LOWER(t.description) LIKE :search " +
+           "OR LOWER(t.payee) LIKE :search " +
+           "OR LOWER(t.transactionNo) LIKE :search " +
+           "OR LOWER(t.payer) LIKE :search)")
     Page<PettyCashTransaction> findFilteredPaginated(
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate,
