@@ -5,26 +5,31 @@ import com.freestone.pettycash.model.TransactionType;
 import com.lowagie.text.*;
 import com.lowagie.text.pdf.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.awt.Color;
 
 @Service
+@Transactional(readOnly = true)
 public class ReportService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
 
     public byte[] generateCsvReport(List<PettyCashTransaction> list) {
         StringBuilder csv = new StringBuilder();
         // CSV Header row
-        csv.append("Date,Transaction No,Type,Description,Category,Subcategory,Payer,Payee,Amount,Receipt Status\n");
+        csv.append("Date & Time,Transaction No,Type,Description,Category,Subcategory,Payer,Payee,Amount,Receipt Status\n");
 
         for (PettyCashTransaction t : list) {
-            csv.append(t.getDate().format(DATE_FORMATTER)).append(",");
+            LocalDateTime ts = t.getTimestamp() != null ? t.getTimestamp() : t.getDate().atStartOfDay();
+            csv.append(escapeCsvField(ts.format(DATETIME_FORMATTER))).append(",");
             csv.append(escapeCsvField(t.getTransactionNo())).append(",");
             csv.append(t.getType().name()).append(",");
             csv.append(escapeCsvField(t.getDescription())).append(",");
@@ -116,12 +121,12 @@ public class ReportService {
             document.add(summaryTable);
 
             // 3. Transactions Table
-            PdfPTable table = new PdfPTable(new float[]{1.2f, 1.3f, 2.0f, 3.5f, 1.2f, 1.2f});
+            PdfPTable table = new PdfPTable(new float[]{1.8f, 1.3f, 1.8f, 3.2f, 1.0f, 1.2f});
             table.setWidthPercentage(100);
             table.setSpacingAfter(30);
 
             // Table headers
-            String[] headers = {"Date", "Transaction No", "Category", "Description", "Type", "Amount"};
+            String[] headers = {"Date & Time", "Transaction No", "Category", "Description", "Type", "Amount"};
             for (String header : headers) {
                 PdfPCell cell = new PdfPCell(new Paragraph(header, tableHeaderFont));
                 cell.setBackgroundColor(Color.decode("#1e293b"));
@@ -133,8 +138,9 @@ public class ReportService {
 
             // Table body rows
             for (PettyCashTransaction t : list) {
-                // Date
-                table.addCell(createTableCell(t.getDate().format(DATE_FORMATTER), tableBodyFont, false, false));
+                // Date & Time
+                LocalDateTime ts = t.getTimestamp() != null ? t.getTimestamp() : t.getDate().atStartOfDay();
+                table.addCell(createTableCell(ts.format(DATETIME_FORMATTER), tableBodyFont, false, false));
                 // Tx No
                 table.addCell(createTableCell(t.getTransactionNo(), tableBodyFont, false, false));
                 // Category

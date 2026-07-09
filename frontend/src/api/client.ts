@@ -103,6 +103,12 @@ export const api = {
       client.post<SubcategoryResponse>(`/categories/${categoryId}/subcategories`, null, {
         params: { name },
       }).then((r) => r.data),
+    updateCategory: (id: number, name: string) =>
+      client.put<CategoryResponse>(`/categories/${id}`, null, { params: { name } }).then((r) => r.data),
+    updateSubcategory: (id: number, name: string) =>
+      client.put<SubcategoryResponse>(`/categories/subcategories/${id}`, null, {
+        params: { name },
+      }).then((r) => r.data),
     deleteCategory: (id: number) => client.delete<void>(`/categories/${id}`).then((r) => r.data),
     deleteSubcategory: (id: number) =>
       client.delete<void>(`/categories/subcategories/${id}`).then((r) => r.data),

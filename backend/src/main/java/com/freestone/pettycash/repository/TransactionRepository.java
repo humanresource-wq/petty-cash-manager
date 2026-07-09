@@ -30,4 +30,11 @@ public interface TransactionRepository extends JpaRepository<PettyCashTransactio
 
     @Query("SELECT COUNT(t) FROM PettyCashTransaction t WHERE t.transactionNo LIKE :prefix%")
     long countByTransactionNoPrefix(@Param("prefix") String prefix);
+
+    /**
+     * Fetches all transactions with category and subcategory eagerly joined.
+     * Used in export (CSV/PDF) to avoid LazyInitializationException outside a session.
+     */
+    @Query("SELECT t FROM PettyCashTransaction t LEFT JOIN FETCH t.category LEFT JOIN FETCH t.subcategory ORDER BY t.date DESC, t.id DESC")
+    List<PettyCashTransaction> findAllWithAssociations();
 }

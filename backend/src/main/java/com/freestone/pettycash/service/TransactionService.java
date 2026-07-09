@@ -170,7 +170,9 @@ public class TransactionService {
 
         // If already uploaded and saved in Google Drive, download it
         if (transaction.getVoucherFileId() != null && !transaction.getVoucherFileId().isBlank()) {
-            return googleDriveService.downloadFile(transaction.getVoucherFileId());
+            if (!transaction.getVoucherFileId().startsWith("mock-file-id-")) {
+                return googleDriveService.downloadFile(transaction.getVoucherFileId());
+            }
         }
 
         // Generate voucher PDF bytes
@@ -301,7 +303,7 @@ public class TransactionService {
             ReceiptStatus receiptStatus,
             String search
     ) {
-        List<PettyCashTransaction> list = transactionRepository.findAllByOrderByDateDescIdDesc();
+        List<PettyCashTransaction> list = transactionRepository.findAllWithAssociations();
 
         return list.stream()
                 .filter(t -> startDate == null || !t.getDate().isBefore(startDate))

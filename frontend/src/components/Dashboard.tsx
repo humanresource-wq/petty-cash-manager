@@ -7,7 +7,6 @@ import type {
   ExpenseTemplate,
   UserResponse,
   CashBoxResponse,
-  ReceiptStatus,
   DashboardStatsResponse,
 } from '../types';
 import { TransactionModal } from './TransactionModal';
@@ -33,6 +32,30 @@ interface DashboardProps {
 const PALETTE = ['#6366f1', '#a855f7', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#f43f5e', '#84cc16'];
 
 export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) => {
+  const formatDateTime = (timestampStr: string | null) => {
+    if (!timestampStr) return '—';
+    try {
+      const date = new Date(timestampStr);
+      if (isNaN(date.getTime())) return timestampStr;
+      
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      
+      let hours = date.getHours();
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      const hoursStr = String(hours).padStart(2, '0');
+      
+      return `${day}-${month}-${year} ${hoursStr}:${minutes}:${seconds} ${ampm}`;
+    } catch (e) {
+      return timestampStr;
+    }
+  };
+
   const [activeTab, setActiveTab] = useState<'dashboard' | 'transactions' | 'settings'>('dashboard');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastTimeoutId, setToastTimeoutId] = useState<any>(null);
@@ -138,17 +161,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
     }
   };
 
-  const handleToggleReceiptStatus = async (id: number, currentStatus: ReceiptStatus) => {
-    if (currentUser.role !== 'ADMIN') return;
-    const nextStatus: ReceiptStatus = currentStatus === 'PENDING' ? 'RECEIVED' : 'PENDING';
-    try {
-      await api.transactions.updateReceiptStatus(id, nextStatus);
-      showToast(`🧾 Receipt status toggled to ${nextStatus.toLowerCase()}`);
-      fetchInitialData();
-    } catch (err) {
-      showToast('❌ Fail: ' + (err instanceof Error ? err.message : String(err)));
-    }
-  };
+
 
   const handleReceiptBadgeClick = (tx: TransactionResponse) => {
     if (tx.receiptStatus === 'RECEIVED') {
@@ -311,6 +324,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
     }));
   };
 
+  const hasActiveFilters = !!(
+    searchQuery ||
+    filterType ||
+    filterCategory ||
+    filterReceipt ||
+    filterStartDate ||
+    filterEndDate
+  );
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setFilterType('');
+    setFilterCategory('');
+    setFilterReceipt('');
+    setFilterStartDate('');
+    setFilterEndDate('');
+  };
+
   // --- Filtered Transactions list ---
   const getFilteredTransactions = () => {
     let list = [...transactions];
@@ -334,10 +365,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
       list = list.filter((t) => t.receiptStatus === filterReceipt);
     }
     if (filterStartDate) {
-      list = list.filter((t) => t.date >= filterStartDate);
+      list = list.filter((t) => {
+        const txDate = t.timestamp ? t.timestamp.split('T')[0] : t.date;
+        return txDate >= filterStartDate;
+      });
     }
     if (filterEndDate) {
-      list = list.filter((t) => t.date <= filterEndDate);
+      list = list.filter((t) => {
+        const txDate = t.timestamp ? t.timestamp.split('T')[0] : t.date;
+        return txDate <= filterEndDate;
+      });
     }
     return list;
   };
@@ -744,6 +781,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                       type="date"
                       value={filterStartDate}
                       onChange={(e) => setFilterStartDate(e.target.value)}
+                      onClick={(e) => {
+                        try { e.currentTarget.showPicker(); } catch {}
+                      }}
                       className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
                     />
                     <span className="text-[10px] text-slate-500 font-bold uppercase select-none">To</span>
@@ -751,9 +791,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                       type="date"
                       value={filterEndDate}
                       onChange={(e) => setFilterEndDate(e.target.value)}
+                      onClick={(e) => {
+                        try { e.currentTarget.showPicker(); } catch {}
+                      }}
                       className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
                     />
                   </div>
+
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={handleClearFilters}
+                      className="bg-red-950/40 hover:bg-red-950/80 text-red-400 hover:text-red-300 font-bold text-xs py-2 px-3 border border-red-900/30 hover:border-red-900/60 rounded-lg transition active:scale-[0.98] cursor-pointer"
+                      title="Clear all active ledger filters"
+                    >
+                      🧹 Clear Filters
+                    </button>
+                  )}
 
                   {/* Export Buttons */}
                   <div className="flex gap-2 shrink-0 ml-auto">
@@ -782,35 +836,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
                         <tr className="bg-slate-950 border-b border-slate-800 text-slate-400">
-                          <th className="p-3 font-semibold uppercase tracking-wider">Date</th>
+                          <th className="p-3 font-semibold uppercase tracking-wider">Date & Time</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Tx No</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Description</th>
+                          <th className="p-3 font-semibold uppercase tracking-wider">Payee</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Paid by</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Receipt</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Voucher</th>
                           <th className="p-3 font-semibold uppercase tracking-wider text-right">Amount</th>
-                          <th className="p-3 font-semibold uppercase tracking-wider text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {getPaginatedTransactions().map((t) => (
                           <tr key={t.id} className="border-b border-slate-900 hover:bg-slate-900/30">
-                            <td className="p-3 text-slate-300 font-medium whitespace-nowrap">{t.date}</td>
+                            <td className="p-3 text-slate-300 font-medium whitespace-nowrap">{formatDateTime(t.timestamp)}</td>
                             <td className="p-3 text-slate-400 font-mono">{t.transactionNo}</td>
                             <td className="p-3 max-w-[200px] truncate">
                               <div className="font-bold text-slate-200 truncate">{t.description}</div>
                               <div className="text-[10px] text-slate-500 mt-0.5 truncate">
                                 {t.type === 'TOPUP' ? 'replenishment' : `${t.categoryName} → ${t.subcategoryName || 'Other'}`}
-                                {t.payee ? ` · Payee: ${t.payee}` : ''}
                               </div>
                             </td>
+                            <td className="p-3 text-slate-300 font-medium truncate">{t.payee || '—'}</td>
                             <td className="p-3 text-slate-400 font-medium truncate">{t.payer}</td>
                             <td className="p-3">
-                              {t.type === 'TOPUP' ? (
-                                <span className="bg-slate-950 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold border border-slate-850">
-                                  —
-                                </span>
-                              ) : t.receiptStatus === 'RECEIVED' ? (
+                              {t.receiptStatus === 'RECEIVED' ? (
                                 <button
                                   onClick={() => handleReceiptBadgeClick(t)}
                                   className="bg-emerald-950 hover:bg-emerald-900 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-bold border border-emerald-900 cursor-pointer flex items-center gap-1 max-w-[120px] truncate"
@@ -818,19 +868,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                                 >
                                   ✅ {t.receiptName || 'Download'}
                                 </button>
-                              ) : t.receiptStatus === 'PENDING' ? (
-                                <button
-                                  onClick={() => handleReceiptBadgeClick(t)}
-                                  className="bg-amber-950 hover:bg-amber-900 text-amber-400 px-2 py-0.5 rounded text-[10px] font-bold border border-amber-900 cursor-pointer animate-[pulse_1.5s_infinite]"
-                                  title="Click to upload receipt"
-                                >
-                                  ⏳ Pending
-                                </button>
-                              ) : (
-                                <span className="bg-slate-950 text-slate-500 px-2 py-0.5 rounded text-[10px] font-bold border border-slate-850">
-                                  N/A
-                                </span>
-                              )}
+                              ) : null}
                             </td>
                             <td className="p-3">
                               {t.type === 'EXPENSE' ? (
@@ -855,17 +893,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                             >
                               {t.type === 'TOPUP' ? '+' : '-'}₹
                               {t.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                            </td>
-                            <td className="p-3 text-right">
-                              {currentUser.role === 'ADMIN' && t.type === 'EXPENSE' && (
-                                <button
-                                  onClick={() => handleToggleReceiptStatus(t.id, t.receiptStatus)}
-                                  className="text-[10px] text-slate-500 hover:text-indigo-400 border border-slate-800 hover:border-indigo-900 rounded px-2 py-0.5 transition"
-                                  title="Toggles receipt validation status"
-                                >
-                                  Verify Status
-                                </button>
-                              )}
                             </td>
                           </tr>
                         ))}
