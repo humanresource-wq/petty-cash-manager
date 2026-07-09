@@ -27,6 +27,12 @@ public class PettyCashTransaction {
     @Column(name = "transaction_no", nullable = false, unique = true)
     private String transactionNo;
 
+    @Column(name = "voucher_number", nullable = false)
+    private String voucherNumber;
+
+    @Column(nullable = false)
+    private String company;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TransactionType type;

@@ -73,7 +73,9 @@ class TransactionServiceTest {
                 LocalDate.now(),
                 "Bank Transfer",
                 null,
-                null
+                null,
+                "Voc-topup-001",
+                "Freestone Infotech LLP"
         );
 
         TransactionResponse response = transactionService.recordTransaction(request, "admin@example.com", null, null, null);
@@ -103,7 +105,9 @@ class TransactionServiceTest {
                 LocalDate.now(),
                 "Tony Stark",
                 testCategory.getId(),
-                testSubcategory.getId()
+                testSubcategory.getId(),
+                "Voc-expense-002",
+                "Freestone Infotech LLP"
         );
 
         TransactionResponse response = transactionService.recordTransaction(request, "admin@example.com", null, null, null);
@@ -132,7 +136,9 @@ class TransactionServiceTest {
                 LocalDate.now(),
                 "Tony Stark",
                 testCategory.getId(),
-                testSubcategory.getId()
+                testSubcategory.getId(),
+                "Voc-expense-003",
+                "Freestone Infotech LLP"
         );
 
         byte[] fileBytes = "test-receipt-data".getBytes();
@@ -159,7 +165,9 @@ class TransactionServiceTest {
                 LocalDate.now(),
                 "Tony Stark",
                 testCategory.getId(),
-                testSubcategory.getId()
+                testSubcategory.getId(),
+                "Voc-expense-004",
+                "Freestone Infotech LLP"
         );
 
         assertThatThrownBy(() -> transactionService.recordTransaction(request, "admin@example.com", null, null, null))
@@ -189,7 +197,9 @@ class TransactionServiceTest {
                         LocalDate.now(),
                         "Tony Stark",
                         testCategory.getId(),
-                        testSubcategory.getId()
+                        testSubcategory.getId(),
+                        "Voc-concur-" + index,
+                        "Freestone Infotech LLP"
                 );
                 // Call recording service
                 return transactionService.recordTransaction(request, "admin@example.com", null, null, null);

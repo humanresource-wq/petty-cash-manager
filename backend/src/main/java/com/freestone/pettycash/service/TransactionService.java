@@ -50,6 +50,16 @@ public class TransactionService {
         Subcategory subcategory = null;
 
         // 2. Perform business validation
+        if (request.voucherNumber() == null || request.voucherNumber().trim().isBlank()) {
+            throw new IllegalArgumentException("Voucher number must not be blank");
+        }
+        if (request.company() == null || request.company().trim().isBlank()) {
+            throw new IllegalArgumentException("Company must not be blank");
+        }
+        if (transactionRepository.existsByVoucherNumberAndDate(request.voucherNumber().trim(), request.date())) {
+            throw new IllegalArgumentException("Voucher number '" + request.voucherNumber().trim() + "' is already registered on " + request.date());
+        }
+
         if (request.type() == TransactionType.EXPENSE) {
             if (box.getBalance().compareTo(request.amount()) < 0) {
                 throw new InsufficientBalanceException(request.amount(), box.getBalance());
@@ -94,6 +104,8 @@ public class TransactionService {
                 category,
                 subcategory
         );
+        transaction.setVoucherNumber(request.voucherNumber().trim());
+        transaction.setCompany(request.company().trim());
 
         // Save first to get the database id
         transaction = transactionRepository.save(transaction);

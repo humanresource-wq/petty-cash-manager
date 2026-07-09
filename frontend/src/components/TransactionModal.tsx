@@ -31,6 +31,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | ''>('');
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<number | ''>('');
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | ''>('');
+  const [voucherNumber, setVoucherNumber] = useState<string>('');
+  const [company, setCompany] = useState<string>('Freestone Infotech LLP');
   const [file, setFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -70,6 +72,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setSelectedCategoryId('');
       setSelectedSubcategoryId('');
       setSelectedTemplateId('');
+      setVoucherNumber('');
+      setCompany('Freestone Infotech LLP');
       setFile(null);
 
       // Force to EXPENSE if user is standard USER, otherwise defaultType
@@ -135,6 +139,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       return toast('⚠️ Enter a valid positive amount.');
     }
     if (!date) return toast('⚠️ Select a valid transaction date.');
+    if (!voucherNumber.trim()) return toast('⚠️ Voucher number must not be blank.');
+    if (!company) return toast('⚠️ Select a company.');
     if (!description.trim()) return toast('⚠️ Description must not be blank.');
 
     if (txType === 'EXPENSE') {
@@ -154,6 +160,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         payee: txType === 'EXPENSE' ? payee.trim() : null,
         categoryId: txType === 'EXPENSE' ? Number(selectedCategoryId) : null,
         subcategoryId: txType === 'EXPENSE' && selectedSubcategoryId ? Number(selectedSubcategoryId) : null,
+        voucherNumber: voucherNumber.trim(),
+        company,
       };
 
       formData.append(
@@ -255,6 +263,37 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 onChange={(e) => setDate(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-indigo-500"
               />
+            </div>
+          </div>
+
+          {/* Voucher Number & Company */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-bold">
+                Voucher Number
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Voc-001-09-12-2026"
+                value={voucherNumber}
+                onChange={(e) => setVoucherNumber(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-bold">
+                Company
+              </label>
+              <select
+                required
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-indigo-500"
+              >
+                <option value="Freestone Infotech LLP">Freestone Infotech LLP</option>
+                <option value="Freestone Infotech PVT ltd">Freestone Infotech PVT ltd</option>
+              </select>
             </div>
           </div>
 

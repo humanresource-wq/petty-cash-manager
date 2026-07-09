@@ -772,6 +772,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                         <tr className="bg-slate-950 border-b border-slate-800 text-slate-400">
                           <th className="p-3 font-semibold uppercase tracking-wider">Date & Time</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Tx No</th>
+                          <th className="p-3 font-semibold uppercase tracking-wider">Voucher No</th>
+                          <th className="p-3 font-semibold uppercase tracking-wider">Company</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Description</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Payee</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Paid by</th>
@@ -785,6 +787,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                           <tr key={t.id} className="border-b border-slate-900 hover:bg-slate-900/30">
                             <td className="p-3 text-slate-300 font-medium whitespace-nowrap">{formatDateTime(t.timestamp)}</td>
                             <td className="p-3 text-slate-400 font-mono">{t.transactionNo}</td>
+                            <td className="p-3 text-slate-400 font-mono">{t.voucherNumber}</td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                t.company === 'Freestone Infotech LLP' 
+                                  ? 'bg-blue-950/60 text-blue-400 border border-blue-900/40' 
+                                  : 'bg-purple-950/60 text-purple-400 border border-purple-900/40'
+                              }`}>
+                                {t.company}
+                              </span>
+                            </td>
                             <td className="p-3 max-w-[200px] truncate">
                               <div className="font-bold text-slate-200 truncate">{t.description}</div>
                               <div className="text-[10px] text-slate-500 mt-0.5 truncate">
@@ -805,20 +817,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                               ) : null}
                             </td>
                             <td className="p-3">
-                              {t.type === 'EXPENSE' ? (
-                                <button
-                                  onClick={() => handleDownloadVoucher(t.id, t.transactionNo)}
-                                  className={`text-[10px] font-bold px-2 py-0.5 rounded border transition ${
-                                    t.voucherFileId
-                                      ? 'bg-indigo-950 text-indigo-400 border-indigo-900 hover:bg-indigo-900/30'
-                                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-900'
-                                  }`}
-                                >
-                                  🧾 Voucher
-                                </button>
-                              ) : (
-                                <span className="text-slate-600">—</span>
-                              )}
+                              <button
+                                onClick={() => handleDownloadVoucher(t.id, t.transactionNo)}
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded border transition ${
+                                  t.voucherFileId
+                                    ? 'bg-indigo-950 text-indigo-400 border-indigo-900 hover:bg-indigo-900/30'
+                                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-900'
+                                }`}
+                              >
+                                🧾 Voucher
+                              </button>
                             </td>
                             <td
                               className={`p-3 text-right font-extrabold whitespace-nowrap ${

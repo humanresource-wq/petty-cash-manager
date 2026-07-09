@@ -47,6 +47,8 @@ export interface TransactionResponse {
   receiptFileId: string | null;
   receiptName: string | null;
   voucherFileId: string | null;
+  voucherNumber: string;
+  company: string;
 }
 
 export interface CashBoxResponse {

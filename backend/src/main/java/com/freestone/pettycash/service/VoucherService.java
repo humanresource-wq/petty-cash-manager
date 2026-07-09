@@ -55,8 +55,11 @@ public class VoucherService {
             // Left Side: Tx details
             PdfPCell leftCell = new PdfPCell();
             leftCell.setBorder(Rectangle.NO_BORDER);
-            leftCell.addElement(new Paragraph("Voucher No: " + tx.getTransactionNo(), headerFont));
-            leftCell.addElement(new Paragraph("Date: " + tx.getDate().format(DATE_FORMATTER), regularFont));
+            leftCell.addElement(new Paragraph("Transaction No: " + tx.getTransactionNo(), regularFont));
+            leftCell.addElement(new Paragraph("Voucher Number: " + (tx.getVoucherNumber() != null ? tx.getVoucherNumber() : "—"), headerFont));
+            leftCell.addElement(new Paragraph("Company: " + (tx.getCompany() != null ? tx.getCompany() : "—"), regularFont));
+            LocalDateTime ts = tx.getTimestamp() != null ? tx.getTimestamp() : tx.getDate().atStartOfDay();
+            leftCell.addElement(new Paragraph("Date & Time: " + ts.format(DATE_TIME_FORMATTER), regularFont));
             leftCell.addElement(new Paragraph("Type: " + tx.getType().name(), regularFont));
             if (tx.getCategory() != null) {
                 leftCell.addElement(new Paragraph("Category: " + tx.getCategory().getName(), regularFont));
