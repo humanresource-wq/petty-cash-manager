@@ -14,6 +14,10 @@ import com.freestone.pettycash.repository.SubcategoryRepository;
 import com.freestone.pettycash.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -76,12 +80,11 @@ public class TransactionService {
         // Save box to register balance changes (increments version)
         cashBoxRepository.save(box);
 
-        // 3. Generate transaction sequence number TX-YYYY-XXXX
-        String transactionNo = generateTransactionNo();
+        // 3. Create transaction with a temporary UUID to obtain the autoincrement ID
+        String tempTxNo = java.util.UUID.randomUUID().toString();
 
-        // 4. Create and save entity
         PettyCashTransaction transaction = new PettyCashTransaction(
-                transactionNo,
+                tempTxNo,
                 request.type(),
                 request.amount(),
                 request.description(),
@@ -92,7 +95,15 @@ public class TransactionService {
                 subcategory
         );
 
-        // Handle optional atomic receipt upload
+        // Save first to get the database id
+        transaction = transactionRepository.save(transaction);
+
+        // 4. Generate sequential transaction no using the database ID
+        String transactionNo = String.format("TX-%05d", transaction.getId());
+        transaction.setTransactionNo(transactionNo);
+        transaction = transactionRepository.save(transaction);
+
+        // 5. Handle optional atomic receipt upload
         if (fileBytes != null && fileBytes.length > 0) {
             String safeFilename = filename != null && !filename.isBlank() ? filename : "receipt.bin";
             String safeMimeType = mimeType != null && !mimeType.isBlank() ? mimeType : "application/octet-stream";
@@ -109,12 +120,6 @@ public class TransactionService {
                 transactionNo, request.type(), request.amount());
 
         return mapper.toResponse(transaction);
-    }
-
-    private String generateTransactionNo() {
-        String yearPrefix = "TX-" + LocalDate.now().getYear();
-        long currentYearCount = transactionRepository.countByTransactionNoPrefix(yearPrefix);
-        return String.format("%s-%04d", yearPrefix, currentYearCount + 1);
     }
 
     public List<TransactionResponse> listAllTransactions() {
@@ -170,7 +175,9 @@ public class TransactionService {
 
         // If already uploaded and saved in Google Drive, download it
         if (transaction.getVoucherFileId() != null && !transaction.getVoucherFileId().isBlank()) {
-            return googleDriveService.downloadFile(transaction.getVoucherFileId());
+            if (!transaction.getVoucherFileId().startsWith("mock-file-id-")) {
+                return googleDriveService.downloadFile(transaction.getVoucherFileId());
+            }
         }
 
         // Generate voucher PDF bytes
@@ -301,7 +308,7 @@ public class TransactionService {
             ReceiptStatus receiptStatus,
             String search
     ) {
-        List<PettyCashTransaction> list = transactionRepository.findAllByOrderByDateDescIdDesc();
+        List<PettyCashTransaction> list = transactionRepository.findAllWithAssociations();
 
         return list.stream()
                 .filter(t -> startDate == null || !t.getDate().isBefore(startDate))
@@ -322,5 +329,31 @@ public class TransactionService {
                     return descMatch || payeeMatch || txNoMatch || payerMatch;
                 })
                 .toList();
+    }
+
+    public Page<TransactionResponse> getPaginatedTransactions(
+            int page,
+            int size,
+            LocalDate startDate,
+            LocalDate endDate,
+            TransactionType type,
+            String categoryName,
+            String search
+    ) {
+        log.info("getPaginatedTransactions: page={}, size={}, startDate={}, endDate={}, type={}, categoryName={}, search='{}'",
+                page, size, startDate, endDate, type, categoryName, search != null ? search : "");
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "date", "id"));
+        
+        String searchParam = (search == null || search.isBlank()) ? null : "%" + search.trim().toLowerCase() + "%";
+        String categoryParam = (categoryName == null || categoryName.isBlank()) ? null : categoryName.trim().toLowerCase();
+
+        Page<PettyCashTransaction> entityPage = transactionRepository.findFilteredPaginated(
+                startDate, endDate, type, categoryParam, searchParam, pageable);
+
+        log.info("getPaginatedTransactions response: totalElements={}, totalPages={}, numberOfElements={}",
+                entityPage.getTotalElements(), entityPage.getTotalPages(), entityPage.getNumberOfElements());
+
+        return entityPage.map(mapper::toResponse);
     }
 }

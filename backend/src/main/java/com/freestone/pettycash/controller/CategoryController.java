@@ -37,6 +37,22 @@ public class CategoryController {
         return ResponseEntity.ok(categoryService.createSubcategory(categoryId, name));
     }
 
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CategoryResponse> updateCategory(
+            @PathVariable Long id,
+            @RequestParam @NotBlank String name) {
+        return ResponseEntity.ok(categoryService.updateCategory(id, name));
+    }
+
+    @PutMapping("/subcategories/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<SubcategoryResponse> updateSubcategory(
+            @PathVariable Long id,
+            @RequestParam @NotBlank String name) {
+        return ResponseEntity.ok(categoryService.updateSubcategory(id, name));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {

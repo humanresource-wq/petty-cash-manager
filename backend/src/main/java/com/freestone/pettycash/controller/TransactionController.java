@@ -22,6 +22,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.springframework.data.domain.Page;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -36,8 +37,18 @@ public class TransactionController {
     private final ReportService reportService;
 
     @GetMapping
-    public ResponseEntity<List<TransactionResponse>> listTransactions() {
-        return ResponseEntity.ok(transactionService.listAllTransactions());
+    public ResponseEntity<Page<TransactionResponse>> listTransactions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) TransactionType type,
+            @RequestParam(required = false) String categoryName,
+            @RequestParam(required = false) String search
+    ) {
+        Page<TransactionResponse> result = transactionService.getPaginatedTransactions(
+                page, size, startDate, endDate, type, categoryName, search);
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/dashboard-stats")

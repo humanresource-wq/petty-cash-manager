@@ -54,6 +54,34 @@ public class CategoryService {
     }
 
     @Transactional
+    public CategoryResponse updateCategory(Long categoryId, String newName) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
+
+        if (!category.getName().equalsIgnoreCase(newName) && categoryRepository.existsByNameIgnoreCase(newName)) {
+            throw new IllegalArgumentException("Category with name '%s' already exists".formatted(newName));
+        }
+
+        category.setName(newName);
+        return mapper.toResponse(categoryRepository.save(category));
+    }
+
+    @Transactional
+    public SubcategoryResponse updateSubcategory(Long subcategoryId, String newName) {
+        Subcategory subcategory = subcategoryRepository.findById(subcategoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Subcategory", "id", subcategoryId));
+
+        Long categoryId = subcategory.getCategory().getId();
+        if (!subcategory.getName().equalsIgnoreCase(newName) &&
+                subcategoryRepository.existsByCategoryIdAndNameIgnoreCase(categoryId, newName)) {
+            throw new IllegalArgumentException("Subcategory with name '%s' already exists in this category".formatted(newName));
+        }
+
+        subcategory.setName(newName);
+        return mapper.toResponse(subcategoryRepository.save(subcategory));
+    }
+
+    @Transactional
     public void deleteCategory(Long categoryId) {
         if (!categoryRepository.existsById(categoryId)) {
             throw new ResourceNotFoundException("Category", "id", categoryId);

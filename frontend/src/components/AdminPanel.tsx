@@ -25,6 +25,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   // Categories form states
   const [newCatName, setNewCatName] = useState<string>('');
   const [newSubNames, setNewSubNames] = useState<Record<number, string>>({});
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState<string>('');
+  const [editingSubcategoryId, setEditingSubcategoryId] = useState<number | null>(null);
+  const [editingSubcategoryName, setEditingSubcategoryName] = useState<string>('');
 
   // Templates form states
   const [tempName, setTempName] = useState<string>('');
@@ -126,6 +130,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       onRefresh();
     } catch (err) {
       toast('❌ Error deleting subcategory: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateCategory = async (id: number) => {
+    if (!editingCategoryName.trim()) return;
+    setLoading(true);
+    try {
+      await api.categories.updateCategory(id, editingCategoryName.trim());
+      setEditingCategoryId(null);
+      setEditingCategoryName('');
+      toast('✏️ Category name updated!');
+      onRefresh();
+    } catch (err) {
+      toast('❌ Failed to update category: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateSubcategory = async (id: number) => {
+    if (!editingSubcategoryName.trim()) return;
+    setLoading(true);
+    try {
+      await api.categories.updateSubcategory(id, editingSubcategoryName.trim());
+      setEditingSubcategoryId(null);
+      setEditingSubcategoryName('');
+      toast('✏️ Subcategory name updated!');
+      onRefresh();
+    } catch (err) {
+      toast('❌ Failed to update subcategory: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setLoading(false);
     }
@@ -315,28 +351,100 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             {categories.map((cat) => (
               <div key={cat.id} className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                  <span className="font-bold text-slate-200 text-xs">{cat.name}</span>
-                  <button
-                    onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                    className="text-[10px] bg-red-950/40 text-red-400 hover:bg-red-950/80 border border-red-900/60 rounded px-1.5 py-0.5"
-                  >
-                    Delete Category
-                  </button>
+                  {editingCategoryId === cat.id ? (
+                    <div className="flex gap-1.5 items-center flex-1 mr-2">
+                      <input
+                        type="text"
+                        value={editingCategoryName}
+                        onChange={(e) => setEditingCategoryName(e.target.value)}
+                        className="bg-slate-900 border border-slate-750 rounded py-0.5 px-2 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-indigo-500 flex-1"
+                      />
+                      <button
+                        onClick={() => handleUpdateCategory(cat.id)}
+                        className="text-[10px] bg-emerald-950/40 text-emerald-400 hover:bg-emerald-950/80 border border-emerald-900/60 rounded px-1.5 py-0.5"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingCategoryId(null)}
+                        className="text-[10px] bg-slate-800 text-slate-300 hover:bg-slate-750 border border-slate-700 rounded px-1.5 py-0.5"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
+                      {cat.name}
+                      <button
+                        onClick={() => {
+                          setEditingCategoryId(cat.id);
+                          setEditingCategoryName(cat.name);
+                        }}
+                        className="text-slate-500 hover:text-indigo-400 text-[10px] cursor-pointer"
+                        title="Edit Category Name"
+                      >
+                        ✏️
+                      </button>
+                    </span>
+                  )}
+                  {editingCategoryId !== cat.id && (
+                    <button
+                      onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                      className="text-[10px] bg-red-950/40 text-red-400 hover:bg-red-950/80 border border-red-900/60 rounded px-1.5 py-0.5"
+                    >
+                      Delete Category
+                    </button>
+                  )}
                 </div>
 
                 {/* Subcategories list */}
                 <div className="flex flex-col gap-1.5 min-h-[40px]">
                   {cat.subcategories.map((sub) => (
                     <div key={sub.id} className="flex items-center justify-between pl-2 text-xs text-slate-400">
-                      <span className="flex items-center gap-1.5">
-                        <span className="text-slate-600">•</span> {sub.name}
-                      </span>
-                      <button
-                        onClick={() => handleDeleteSubcategory(sub.id)}
-                        className="text-slate-600 hover:text-red-400 text-[10px]"
-                      >
-                        ✕
-                      </button>
+                      {editingSubcategoryId === sub.id ? (
+                        <div className="flex gap-1.5 items-center flex-1 mr-2 my-0.5">
+                          <input
+                            type="text"
+                            value={editingSubcategoryName}
+                            onChange={(e) => setEditingSubcategoryName(e.target.value)}
+                            className="bg-slate-900 border border-slate-800 rounded py-0.5 px-2 text-[11px] text-white focus:outline-none focus:border-indigo-500 flex-1"
+                          />
+                          <button
+                            onClick={() => handleUpdateSubcategory(sub.id)}
+                            className="text-[9px] bg-emerald-950/40 text-emerald-400 hover:bg-emerald-950/80 border border-emerald-900/60 rounded px-1 py-0.5"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingSubcategoryId(null)}
+                            className="text-[9px] bg-slate-800 text-slate-300 hover:bg-slate-750 border border-slate-700 rounded px-1 py-0.5"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="flex items-center gap-1.5 flex-1">
+                          <span className="text-slate-600">•</span> {sub.name}
+                          <button
+                            onClick={() => {
+                              setEditingSubcategoryId(sub.id);
+                              setEditingSubcategoryName(sub.name);
+                            }}
+                            className="text-slate-500 hover:text-indigo-400 text-[10px] ml-1.5 cursor-pointer"
+                            title="Edit Subcategory Name"
+                          >
+                            ✏️
+                          </button>
+                        </span>
+                      )}
+                      {editingSubcategoryId !== sub.id && (
+                        <button
+                          onClick={() => handleDeleteSubcategory(sub.id)}
+                          className="text-slate-600 hover:text-red-400 text-[10px]"
+                        >
+                          ✕
+                        </button>
+                      )}
                     </div>
                   ))}
                   {cat.subcategories.length === 0 && (
