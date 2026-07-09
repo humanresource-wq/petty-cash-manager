@@ -12,6 +12,7 @@ import type {
   UserStatus,
   Role,
   DashboardStatsResponse,
+  Page,
 } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
@@ -58,7 +59,15 @@ export const api = {
   },
 
   transactions: {
-    list: () => client.get<TransactionResponse[]>('/transactions').then((r) => r.data),
+    list: (params?: {
+      page?: number;
+      size?: number;
+      startDate?: string;
+      endDate?: string;
+      type?: string;
+      categoryName?: string;
+      search?: string;
+    }) => client.get<Page<TransactionResponse>>('/transactions', { params }).then((r) => r.data),
     record: (formData: FormData) =>
       client.post<TransactionResponse>('/transactions', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },

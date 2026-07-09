@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { api } from '../api/client';
 import type {
   TransactionResponse,
@@ -62,6 +61,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
 
   // Core Data States
   const [transactions, setTransactions] = useState<TransactionResponse[]>([]);
+  const [totalElements, setTotalElements] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(0);
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [templates, setTemplates] = useState<ExpenseTemplate[]>([]);
   const [cashbox, setCashbox] = useState<CashBoxResponse>({ balance: 0, lowThreshold: 2000 });
@@ -72,7 +73,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterType, setFilterType] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<string>('');
-  const [filterReceipt, setFilterReceipt] = useState<string>('');
   const [filterStartDate, setFilterStartDate] = useState<string>('');
   const [filterEndDate, setFilterEndDate] = useState<string>('');
 
@@ -83,42 +83,73 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
   // Reset pagination to page 1 whenever filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterType, filterCategory, filterReceipt, filterStartDate, filterEndDate]);
+  }, [searchQuery, filterType, filterCategory, filterStartDate, filterEndDate]);
 
   // Modals
   const [isTxModalOpen, setIsTxModalOpen] = useState<boolean>(false);
   const [txModalDefaultType, setTxModalDefaultType] = useState<'EXPENSE' | 'TOPUP'>('EXPENSE');
-  const [uploadingReceiptTxId, setUploadingReceiptTxId] = useState<number | null>(null);
 
   // Previews
   const [previewTx, setPreviewTx] = useState<TransactionResponse | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState<boolean>(false);
 
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
+  const fetchTransactions = async () => {
+    try {
+      const pageData = await api.transactions.list({
+        page: currentPage - 1,
+        size: pageSize,
+        startDate: filterStartDate || undefined,
+        endDate: filterEndDate || undefined,
+        type: filterType || undefined,
+        categoryName: filterCategory || undefined,
+        search: searchQuery || undefined,
+      });
+      setTransactions(pageData.content);
+      setTotalElements(pageData.totalElements);
+      setTotalPages(pageData.totalPages);
+    } catch (err) {
+      showToast('❌ Failed to fetch transactions: ' + (err instanceof Error ? err.message : String(err)));
+    }
+  };
 
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      const [txData, catData, tempData, statsData] = await Promise.all([
-        api.transactions.list(),
+      const [catData, tempData, statsData] = await Promise.all([
         api.categories.list(),
         api.templates.list(),
         api.transactions.getDashboardStats(),
       ]);
-      setTransactions(txData);
       setCategories(catData);
       setTemplates(tempData);
       setDashboardStats(statsData);
       setCashbox({ balance: statsData.balance, lowThreshold: statsData.lowThreshold });
+      await fetchTransactions();
     } catch (err) {
       showToast('❌ Failed to fetch database state: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
+
+  const isFirstMount = React.useRef(true);
+  useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
+    const fetchTxs = async () => {
+      setLoading(true);
+      await fetchTransactions();
+      setLoading(false);
+    };
+    fetchTxs();
+  }, [currentPage, searchQuery, filterType, filterCategory, filterStartDate, filterEndDate]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -163,15 +194,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
 
 
 
-  const handleReceiptBadgeClick = (tx: TransactionResponse) => {
-    if (tx.receiptStatus === 'RECEIVED') {
-      handleViewReceipt(tx);
-    } else if (tx.receiptStatus === 'PENDING') {
-      // Click pending badge to trigger file upload dialog
-      setUploadingReceiptTxId(tx.id);
-      document.getElementById('receipt-badge-file-uploader')?.click();
-    }
-  };
+
 
   const handleViewReceipt = async (tx: TransactionResponse) => {
     if (!tx.receiptName) return;
@@ -214,7 +237,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
         endDate: filterEndDate || undefined,
         type: filterType || undefined,
         categoryName: filterCategory || undefined,
-        receiptStatus: filterReceipt || undefined,
         search: searchQuery || undefined,
       };
 
@@ -245,38 +267,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
     }
   };
 
-  const handleBadgeFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!uploadingReceiptTxId || !e.target.files || !e.target.files[0]) return;
-    const file = e.target.files[0];
-    showToast('📥 Uploading receipt attachment...');
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      // We had a separate uploadReceipt endpoint on the backend: POST /api/v1/transactions/{id}/receipt
-      // Wait, let's verify if we kept it. Yes, we did: @PostMapping(value = "/{id}/receipt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-      // Let's call it:
-      await axiosUploadReceiptHelper(uploadingReceiptTxId, file);
-      showToast('✅ Receipt uploaded successfully!');
-      fetchInitialData();
-    } catch (err) {
-      showToast('❌ Upload failed: ' + (err instanceof Error ? err.message : String(err)));
-    } finally {
-      setUploadingReceiptTxId(null);
-      e.target.value = '';
-    }
-  };
 
-  const axiosUploadReceiptHelper = async (txId: number, file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    const token = sessionStorage.getItem('token');
-    await axios.post(`/api/v1/transactions/${txId}/receipt`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-  };
 
   // --- Derived Calculations ---
   const currentMonthName = () => {
@@ -291,13 +282,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
     return dashboardStats?.currentMonthAdded ?? 0;
   };
 
-  const pendingReceiptsCount = () => {
-    return dashboardStats?.pendingReceiptsCount ?? 0;
-  };
 
-  const pendingReceiptsValue = () => {
-    return dashboardStats?.pendingReceiptsValue ?? 0;
-  };
 
   // --- Charts Data ---
   const getTrendData = () => {
@@ -328,7 +313,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
     searchQuery ||
     filterType ||
     filterCategory ||
-    filterReceipt ||
     filterStartDate ||
     filterEndDate
   );
@@ -337,52 +321,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
     setSearchQuery('');
     setFilterType('');
     setFilterCategory('');
-    setFilterReceipt('');
     setFilterStartDate('');
     setFilterEndDate('');
   };
 
   // --- Filtered Transactions list ---
   const getFilteredTransactions = () => {
-    let list = [...transactions];
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (t) =>
-          t.description.toLowerCase().includes(q) ||
-          t.payer.toLowerCase().includes(q) ||
-          t.payee?.toLowerCase().includes(q) ||
-          t.transactionNo.toLowerCase().includes(q)
-      );
-    }
-    if (filterType) {
-      list = list.filter((t) => t.type === filterType);
-    }
-    if (filterCategory) {
-      list = list.filter((t) => t.categoryName === filterCategory);
-    }
-    if (filterReceipt) {
-      list = list.filter((t) => t.receiptStatus === filterReceipt);
-    }
-    if (filterStartDate) {
-      list = list.filter((t) => {
-        const txDate = t.timestamp ? t.timestamp.split('T')[0] : t.date;
-        return txDate >= filterStartDate;
-      });
-    }
-    if (filterEndDate) {
-      list = list.filter((t) => {
-        const txDate = t.timestamp ? t.timestamp.split('T')[0] : t.date;
-        return txDate <= filterEndDate;
-      });
-    }
-    return list;
+    return transactions;
   };
 
   const getPaginatedTransactions = () => {
-    const list = getFilteredTransactions();
-    const startIndex = (currentPage - 1) * pageSize;
-    return list.slice(startIndex, startIndex + pageSize);
+    return transactions;
   };
 
   return (
@@ -507,7 +456,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                 </div>
 
                 {/* Stats Metric Cards Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Balance HERO metric */}
                   <div className="relative overflow-hidden bg-gradient-to-br from-indigo-700 to-purple-800 rounded-xl p-5 shadow-lg flex flex-col justify-between min-h-[110px] group">
                     <div className="absolute right-[-20px] top-[-20px] w-24 h-24 rounded-full bg-white/10 group-hover:scale-115 transition duration-300"></div>
@@ -549,20 +498,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                     </h3>
                     <span className="text-[10px] text-slate-400 mt-1 font-medium">
                       Month-to-date cash additions
-                    </span>
-                  </div>
-
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between min-h-[110px]">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                      Pending Receipts
-                    </span>
-                    <h3 className="text-2xl font-extrabold text-amber-500 tracking-tight mt-2">
-                      {pendingReceiptsCount()}
-                    </h3>
-                    <span className="text-[10px] text-slate-400 mt-1 font-medium">
-                      {pendingReceiptsCount() > 0
-                        ? `₹${pendingReceiptsValue().toLocaleString()} awaiting verify`
-                        : 'All receipts verified! 🎉'}
                     </span>
                   </div>
                 </div>
@@ -710,7 +645,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                   <div>
                     <h2 className="text-xl font-extrabold text-white tracking-tight">Transactions Ledger</h2>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      Every rupee in and out — tap an amber badge to upload/verify receipts.
+                      Every rupee in and out — view ledger history and download attachments.
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -726,14 +661,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                   </div>
                 </div>
 
-                {/* Hidden input to receive badge clicked receipt file select */}
-                <input
-                  id="receipt-badge-file-uploader"
-                  type="file"
-                  className="hidden"
-                  accept="image/*,application/pdf"
-                  onChange={handleBadgeFileSelected}
-                />
+
 
                 {/* Filters Row */}
                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-wrap gap-3 items-center">
@@ -765,16 +693,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                       </option>
                     ))}
                   </select>
-                  <select
-                    value={filterReceipt}
-                    onChange={(e) => setFilterReceipt(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500"
-                  >
-                    <option value="">All receipt statuses</option>
-                    <option value="PENDING">Receipt pending</option>
-                    <option value="RECEIVED">Receipt uploaded</option>
-                    <option value="NA">No receipt required</option>
-                  </select>
+
                   <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5">
                     <span className="text-[10px] text-slate-500 font-bold uppercase select-none">From</span>
                     <input
@@ -860,13 +779,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                             <td className="p-3 text-slate-300 font-medium truncate">{t.payee || '—'}</td>
                             <td className="p-3 text-slate-400 font-medium truncate">{t.payer}</td>
                             <td className="p-3">
-                              {t.receiptStatus === 'RECEIVED' ? (
+                              {t.receiptName ? (
                                 <button
-                                  onClick={() => handleReceiptBadgeClick(t)}
+                                  onClick={() => handleViewReceipt(t)}
                                   className="bg-emerald-950 hover:bg-emerald-900 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-bold border border-emerald-900 cursor-pointer flex items-center gap-1 max-w-[120px] truncate"
                                   title={`Download ${t.receiptName}`}
                                 >
-                                  ✅ {t.receiptName || 'Download'}
+                                  ✅ {t.receiptName}
                                 </button>
                               ) : null}
                             </td>
@@ -908,14 +827,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                   </div>
 
                   {/* Pagination Footer */}
-                  {getFilteredTransactions().length > 0 && (
+                  {totalElements > 0 && (
                     <div className="flex items-center justify-between p-4 border-t border-slate-800/60 bg-slate-950/20 text-xs text-slate-400">
                       <div>
-                        Showing <span className="font-bold text-slate-200">{Math.min(getFilteredTransactions().length, (currentPage - 1) * pageSize + 1)}</span> to{' '}
+                        Showing <span className="font-bold text-slate-200">{totalElements === 0 ? 0 : (currentPage - 1) * pageSize + 1}</span> to{' '}
                         <span className="font-bold text-slate-200">
-                          {Math.min(getFilteredTransactions().length, currentPage * pageSize)}
+                          {Math.min(totalElements, currentPage * pageSize)}
                         </span>{' '}
-                        of <span className="font-bold text-slate-200">{getFilteredTransactions().length}</span> entries
+                        of <span className="font-bold text-slate-200">{totalElements}</span> entries
                       </div>
                       
                       <div className="flex items-center gap-1.5">
@@ -928,7 +847,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                           Previous
                         </button>
                         
-                        {Array.from({ length: Math.ceil(getFilteredTransactions().length / pageSize) }).map((_, idx) => {
+                        {Array.from({ length: totalPages }).map((_, idx) => {
                           const pageNum = idx + 1;
                           return (
                             <button
@@ -948,8 +867,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                         
                         <button
                           type="button"
-                          onClick={() => setCurrentPage(prev => Math.min(Math.ceil(getFilteredTransactions().length / pageSize), prev + 1))}
-                          disabled={currentPage === Math.ceil(getFilteredTransactions().length / pageSize)}
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages || totalPages === 0}
                           className="px-2.5 py-1 rounded bg-slate-950 border border-slate-800 text-[10px] font-bold text-slate-300 hover:text-white hover:bg-slate-900 transition disabled:opacity-40 disabled:cursor-not-allowed select-none"
                         >
                           Next

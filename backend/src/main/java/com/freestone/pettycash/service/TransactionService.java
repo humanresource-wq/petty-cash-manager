@@ -14,6 +14,10 @@ import com.freestone.pettycash.repository.SubcategoryRepository;
 import com.freestone.pettycash.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -324,5 +328,28 @@ public class TransactionService {
                     return descMatch || payeeMatch || txNoMatch || payerMatch;
                 })
                 .toList();
+    }
+
+    public Page<TransactionResponse> getPaginatedTransactions(
+            int page,
+            int size,
+            LocalDate startDate,
+            LocalDate endDate,
+            TransactionType type,
+            String categoryName,
+            String search
+    ) {
+        log.info("getPaginatedTransactions: page={}, size={}, startDate={}, endDate={}, type={}, categoryName={}, search='{}'",
+                page, size, startDate, endDate, type, categoryName, search != null ? search : "");
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "date", "id"));
+        
+        Page<PettyCashTransaction> entityPage = transactionRepository.findFilteredPaginated(
+                startDate, endDate, type, categoryName, search, pageable);
+
+        log.info("getPaginatedTransactions response: totalElements={}, totalPages={}, numberOfElements={}",
+                entityPage.getTotalElements(), entityPage.getTotalPages(), entityPage.getNumberOfElements());
+
+        return entityPage.map(mapper::toResponse);
     }
 }
