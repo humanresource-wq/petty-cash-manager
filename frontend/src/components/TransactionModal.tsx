@@ -39,6 +39,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [filePreviewUrls, setFilePreviewUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [dragOver, setDragOver] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Preview URL generator for selected files — revokes old URLs on change
   useEffect(() => {
@@ -82,6 +83,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setVoucherNumber('');
       setCompany(companies[0] || '');
       setFile([]);
+      setError(null);
 
       // Force to EXPENSE if user is standard USER, otherwise defaultType
       if (currentUser.role === 'USER') {
@@ -154,18 +156,33 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
-      return toast('⚠️ Enter a valid positive amount.');
+      setError('Enter a valid positive amount.');
+      return;
     }
-    if (!date) return toast('⚠️ Select a valid transaction date.');
-    if (!voucherNumber.trim()) return toast('⚠️ Voucher number must not be blank.');
-    if (!company) return toast('⚠️ Select a company.');
-    if (!description.trim()) return toast('⚠️ Description must not be blank.');
+    if (!date) {
+      setError('Select a valid transaction date.');
+      return;
+    }
+    if (!voucherNumber.trim()) {
+      setError('Voucher number must not be blank.');
+      return;
+    }
+    if (!company) {
+      setError('Select a company.');
+      return;
+    }
+    if (!description.trim()) {
+      setError('Description must not be blank.');
+      return;
+    }
 
     if (txType === 'EXPENSE') {
       if (!selectedCategoryId) {
-        return toast('⚠️ Select an expense Category.');
+        setError('Select an expense Category.');
+        return;
       }
     }
 
@@ -200,7 +217,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       onSuccess();
       onClose();
     } catch (err) {
-      toast('❌ Error: ' + (err instanceof Error ? err.message : String(err)));
+      setError('Failed to record: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setLoading(false);
     }
@@ -212,6 +229,22 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         <h3 className="text-lg font-bold text-white mb-6">
           {txType === 'EXPENSE' ? 'Record Expense' : 'Add Cash to Box (Top-up)'}
         </h3>
+
+        {error && (
+          <div className="mb-6 p-3 bg-red-950/40 border border-red-900/60 rounded-lg text-red-200 text-xs font-semibold flex items-center justify-between gap-2 animate-[shake_0.2s_ease-in-out]">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">⚠️</span>
+              <span className="flex-1">{error}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="text-red-400 hover:text-red-300 font-bold px-1.5 py-0.5 rounded cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Tab Selector Segment Button (Admin only) */}
         {currentUser.role === 'ADMIN' && (

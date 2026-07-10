@@ -31,6 +31,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const [company, setCompany] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [amountChanged, setAmountChanged] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Populate form whenever transaction changes
   useEffect(() => {
@@ -44,6 +45,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       setVoucherNumber(transaction.voucherNumber);
       setCompany(transaction.company);
       setAmountChanged(false);
+      setError(null);
     }
   }, [transaction]);
 
@@ -60,10 +62,11 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!transaction) return;
+    setError(null);
 
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      toast('❌ Amount must be a positive number');
+      setError('Amount must be a positive number');
       return;
     }
 
@@ -83,7 +86,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       onSuccess();
       onClose();
     } catch (err) {
-      toast('❌ Failed to update: ' + (err instanceof Error ? err.message : String(err)));
+      setError('Failed to update: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setSubmitting(false);
     }
@@ -125,6 +128,22 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             ✕
           </button>
         </div>
+
+        {error && (
+          <div className="mx-5 mt-4 p-3 bg-red-950/40 border border-red-900/60 rounded-lg text-red-200 text-xs font-semibold flex items-center justify-between gap-2 animate-[shake_0.2s_ease-in-out]">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">⚠️</span>
+              <span className="flex-1">{error}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="text-red-400 hover:text-red-300 font-bold px-1.5 py-0.5 rounded cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Amount change warning banner */}
         {amountChanged && amountDiff !== 0 && (
