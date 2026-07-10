@@ -26,5 +26,6 @@ public record TransactionResponse(
         String receiptName,
         String voucherFileId,
         String voucherNumber,
-        String company
+        String company,
+        boolean editable
 ) {}

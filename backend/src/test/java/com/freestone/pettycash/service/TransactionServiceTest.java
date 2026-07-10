@@ -20,9 +20,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,6 +45,12 @@ class TransactionServiceTest {
 
     @Autowired
     private SubcategoryRepository subcategoryRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private jakarta.persistence.EntityManager entityManager;
 
     private Category testCategory;
     private Subcategory testSubcategory;
@@ -434,5 +442,97 @@ class TransactionServiceTest {
         assertThatThrownBy(() -> transactionService.updateTransaction(created.id(), updateReq))
                 .isInstanceOf(InsufficientBalanceException.class)
                 .hasMessageContaining("Insufficient balance in Cash Box");
+    }
+
+    @Test
+    @DisplayName("Editing transaction within configurable limit (1 month + 3 days) succeeds")
+    @Transactional
+    void editTransactionWithinTimeLimitSucceeds() throws Exception {
+        // Setup cashbox
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(1000.00));
+        cashBoxRepository.save(box);
+
+        // Setup transaction recorded 15 days ago
+        TransactionRequest createReq = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(100.00),
+                "Recent transaction",
+                LocalDate.now(),
+                "John",
+                testCategory.getId(),
+                null,
+                "Voc-time-001",
+                "Freestone Infotech LLP"
+        );
+        TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
+        
+        // Use JDBC to update the database record to 15 days ago
+        LocalDateTime fifteenDaysAgo = LocalDateTime.now().minusDays(15);
+        jdbcTemplate.update("UPDATE transactions SET created_at = ? WHERE id = ?", fifteenDaysAgo, created.id());
+
+        // Clear persistence context to force reload from DB
+        entityManager.clear();
+
+        // Perform edit
+        TransactionUpdateRequest updateReq = new TransactionUpdateRequest(
+                BigDecimal.valueOf(100.00),
+                "Recent transaction - Edited",
+                LocalDate.now(),
+                "John",
+                testCategory.getId(),
+                null,
+                "Voc-time-001",
+                "Freestone Infotech LLP"
+        );
+        TransactionResponse updated = transactionService.updateTransaction(created.id(), updateReq);
+        assertThat(updated.description()).isEqualTo("Recent transaction - Edited");
+    }
+
+    @Test
+    @DisplayName("Editing transaction outside configurable limit (1 month + 3 days) throws IllegalArgumentException")
+    @Transactional
+    void editTransactionOutsideTimeLimitThrows() throws Exception {
+        // Setup cashbox
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(1000.00));
+        cashBoxRepository.save(box);
+
+        // Setup transaction recorded 40 days ago
+        TransactionRequest createReq = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(100.00),
+                "Old transaction",
+                LocalDate.now(),
+                "John",
+                testCategory.getId(),
+                null,
+                "Voc-time-002",
+                "Freestone Infotech LLP"
+        );
+        TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
+        
+        // Use JDBC to update the database record to 40 days ago (more than 1 month + 3 days)
+        LocalDateTime fortyDaysAgo = LocalDateTime.now().minusDays(40);
+        jdbcTemplate.update("UPDATE transactions SET created_at = ? WHERE id = ?", fortyDaysAgo, created.id());
+
+        // Clear persistence context to force reload from DB
+        entityManager.clear();
+
+        // Attempt edit — should throw IllegalArgumentException
+        TransactionUpdateRequest updateReq = new TransactionUpdateRequest(
+                BigDecimal.valueOf(100.00),
+                "Old transaction - Attempted Edit",
+                LocalDate.now(),
+                "John",
+                testCategory.getId(),
+                null,
+                "Voc-time-002",
+                "Freestone Infotech LLP"
+        );
+
+        assertThatThrownBy(() -> transactionService.updateTransaction(created.id(), updateReq))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Transaction cannot be edited after");
     }
 }

@@ -7,6 +7,7 @@ import type {
   UserResponse,
   CashBoxResponse,
   DashboardStatsResponse,
+  AppConfig,
 } from '../types';
 import { TransactionModal } from './TransactionModal';
 import { AdminPanel } from './AdminPanel';
@@ -27,11 +28,12 @@ import {
 interface DashboardProps {
   currentUser: UserResponse;
   onLogout: () => void;
+  config: AppConfig;
 }
 
 const PALETTE = ['#6366f1', '#a855f7', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#f43f5e', '#84cc16'];
 
-export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, config }) => {
   const formatDateTime = (timestampStr: string | null) => {
     if (!timestampStr) return '—';
     try {
@@ -862,14 +864,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                             </td>
                             {currentUser.role === 'ADMIN' && (
                               <td className="p-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingTx(t)}
-                                  title="Edit transaction"
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-indigo-600/20 border border-slate-700 hover:border-indigo-500/50 text-slate-400 hover:text-indigo-300 text-[10px] font-bold transition cursor-pointer active:scale-95"
-                                >
-                                  ✏️ Edit
-                                </button>
+                                {t.editable ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingTx(t)}
+                                    title="Edit transaction"
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-indigo-600/20 border border-slate-700 hover:border-indigo-500/50 text-slate-400 hover:text-indigo-300 text-[10px] font-bold transition cursor-pointer active:scale-95"
+                                  >
+                                    ✏️ Edit
+                                  </button>
+                                ) : (
+                                  <span className="text-slate-500 font-bold select-none text-[10px]" title="This transaction is locked and cannot be edited.">
+                                    🔒 Locked
+                                  </span>
+                                )}
                               </td>
                             )}
                           </tr>
@@ -975,6 +983,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
         templates={templates}
         toast={showToast}
         defaultType={txModalDefaultType}
+        companies={config.companies}
       />
 
       {/* Edit Transaction Modal */}
@@ -985,6 +994,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
         onSuccess={fetchInitialData}
         categories={categories}
         toast={showToast}
+        companies={config.companies}
       />
 
       {/* Inline Receipt Previewer Modal */}

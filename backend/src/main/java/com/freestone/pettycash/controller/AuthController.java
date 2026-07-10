@@ -1,5 +1,6 @@
 package com.freestone.pettycash.controller;
 
+import com.freestone.pettycash.config.AppProperties;
 import com.freestone.pettycash.dto.DemoLoginRequest;
 import com.freestone.pettycash.dto.GoogleLoginRequest;
 import com.freestone.pettycash.dto.TokenResponse;
@@ -29,6 +30,7 @@ public class AuthController {
     private final AuthService authService;
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final AppProperties appProperties;
 
     @Value("${app.security.demo-login-enabled:true}")
     private boolean demoLoginEnabled;
@@ -56,6 +58,7 @@ public class AuthController {
         Map<String, Object> config = new HashMap<>();
         config.put("demoLoginEnabled", demoLoginEnabled);
         config.put("googleClientId", googleClientId);
+        config.put("companies", appProperties.getCompanies());
 
         if (demoLoginEnabled) {
             List<Map<String, String>> demoUsers = userRepository.findAll().stream()

@@ -82,7 +82,7 @@ function App() {
   return (
     <>
       {currentUser && config ? (
-        <Dashboard currentUser={currentUser} onLogout={handleLogout} />
+        <Dashboard currentUser={currentUser} onLogout={handleLogout} config={config} />
       ) : config ? (
         <Login config={config} onLoginSuccess={handleLoginSuccess} />
       ) : null}

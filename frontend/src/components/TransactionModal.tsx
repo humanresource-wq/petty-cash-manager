@@ -11,6 +11,7 @@ interface TransactionModalProps {
   templates: ExpenseTemplate[];
   toast: (msg: string) => void;
   defaultType?: 'EXPENSE' | 'TOPUP';
+  companies: string[];
 }
 
 export const TransactionModal: React.FC<TransactionModalProps> = ({
@@ -22,6 +23,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   templates,
   toast,
   defaultType,
+  companies,
 }) => {
   const [txType, setTxType] = useState<'EXPENSE' | 'TOPUP'>('EXPENSE');
   const [amount, setAmount] = useState<string>('');
@@ -32,7 +34,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<number | ''>('');
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | ''>('');
   const [voucherNumber, setVoucherNumber] = useState<string>('');
-  const [company, setCompany] = useState<string>('Freestone Infotech LLP');
+  const [company, setCompany] = useState<string>('');
   const [file, setFile] = useState<File[]>([]);
   const [filePreviewUrls, setFilePreviewUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -78,7 +80,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setSelectedSubcategoryId('');
       setSelectedTemplateId('');
       setVoucherNumber('');
-      setCompany('Freestone Infotech LLP');
+      setCompany(companies[0] || '');
       setFile([]);
 
       // Force to EXPENSE if user is standard USER, otherwise defaultType
@@ -311,8 +313,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 onChange={(e) => setCompany(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-indigo-500"
               >
-                <option value="Freestone Infotech LLP">Freestone Infotech LLP</option>
-                <option value="Freestone Infotech PVT ltd">Freestone Infotech PVT ltd</option>
+                {companies.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

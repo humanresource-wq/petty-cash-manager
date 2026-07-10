@@ -9,6 +9,7 @@ interface EditTransactionModalProps {
   onSuccess: () => void;
   categories: CategoryResponse[];
   toast: (msg: string) => void;
+  companies: string[];
 }
 
 export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
@@ -18,6 +19,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   onSuccess,
   categories,
   toast,
+  companies,
 }) => {
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -291,8 +293,11 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                   className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg py-2.5 px-3 text-sm text-white focus:outline-none transition"
                 >
                   <option value="">Select company</option>
-                  <option value="Freestone Infotech LLP">Freestone Infotech LLP</option>
-                  <option value="Codemine Technologies">Codemine Technologies</option>
+                  {companies.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

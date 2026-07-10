@@ -24,7 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import com.freestone.pettycash.config.AppProperties;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -40,6 +42,7 @@ public class TransactionService {
     private final GoogleDriveService googleDriveService;
     private final VoucherService voucherService;
     private final TransactionMapper mapper;
+    private final AppProperties appProperties;
 
     @Transactional
     public TransactionResponse recordTransaction(TransactionRequest request, String payerEmail, byte[] fileBytes, String filename, String mimeType) throws IOException {
@@ -229,6 +232,17 @@ public class TransactionService {
     public TransactionResponse updateTransaction(Long id, TransactionUpdateRequest request) {
         PettyCashTransaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction", "id", id));
+
+        if (transaction.getCreatedAt() != null) {
+            LocalDateTime limit = transaction.getCreatedAt()
+                    .plusMonths(appProperties.getEditLimit().getMonths())
+                    .plusDays(appProperties.getEditLimit().getDays());
+            if (LocalDateTime.now().isAfter(limit)) {
+                throw new IllegalArgumentException("Transaction cannot be edited after " +
+                        appProperties.getEditLimit().getMonths() + " month(s) and " +
+                        appProperties.getEditLimit().getDays() + " day(s) from recording.");
+            }
+        }
 
         CashBox box = cashBoxRepository.findById(1L)
                 .orElseThrow(() -> new IllegalStateException("Cash Box system is not initialized"));
