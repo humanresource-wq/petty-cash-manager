@@ -261,7 +261,11 @@ public class TransactionService {
                 box.setBalance(restoredBalance.subtract(newAmount));
             } else {
                 // TOPUP: reverse old credit, apply new credit
-                box.setBalance(box.getBalance().subtract(oldAmount).add(newAmount));
+                BigDecimal adjustedBalance = box.getBalance().subtract(oldAmount).add(newAmount);
+                if (adjustedBalance.compareTo(BigDecimal.ZERO) < 0) {
+                    throw new InsufficientBalanceException(oldAmount.subtract(newAmount), box.getBalance());
+                }
+                box.setBalance(adjustedBalance);
             }
             cashBoxRepository.save(box);
         }

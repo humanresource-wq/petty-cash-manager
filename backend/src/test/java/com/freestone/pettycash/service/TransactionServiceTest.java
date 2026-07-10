@@ -366,6 +366,56 @@ class TransactionServiceTest {
     }
 
     @Test
+    @DisplayName("Updating topup downwards exceeding available balance throws InsufficientBalanceException")
+    @Transactional
+    void updateTopupDownwardsExceedingBalanceThrows() throws Exception {
+        // Setup: cashbox balance is 5000 (after a 5000 topup)
+        TransactionRequest createReq = new TransactionRequest(
+                TransactionType.TOPUP,
+                BigDecimal.valueOf(5000.00),
+                "Topup",
+                LocalDate.now(),
+                "Bank",
+                null,
+                null,
+                "Voc-upd-topdown",
+                "Freestone Infotech LLP"
+        );
+        TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
+
+        // Record expense of 4000 → remaining balance is 1000
+        TransactionRequest expenseReq = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(4000.00),
+                "Expense",
+                LocalDate.now(),
+                "Vendor",
+                testCategory.getId(),
+                null,
+                "Voc-upd-topdown-exp",
+                "Freestone Infotech LLP"
+        );
+        transactionService.recordTransaction(expenseReq, "admin@example.com", null, null, null);
+        assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("1000.00");
+
+        // Attempt to update the 5000 topup to 2000 (reduction is 3000, which exceeds remaining 1000 balance)
+        TransactionUpdateRequest updateReq = new TransactionUpdateRequest(
+                BigDecimal.valueOf(2000.00),
+                "Corrected topup",
+                LocalDate.now(),
+                null,
+                null,
+                null,
+                "Voc-upd-topdown",
+                "Freestone Infotech LLP"
+        );
+
+        assertThatThrownBy(() -> transactionService.updateTransaction(created.id(), updateReq))
+                .isInstanceOf(InsufficientBalanceException.class)
+                .hasMessageContaining("Insufficient balance");
+    }
+
+    @Test
     @DisplayName("Updating expense with unchanged amount should NOT alter cashbox balance")
     @Transactional
     void updateWithUnchangedAmountDoesNotAlterBalance() throws Exception {
