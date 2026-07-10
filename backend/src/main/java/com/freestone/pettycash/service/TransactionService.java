@@ -439,7 +439,17 @@ public class TransactionService {
         String categoryParam = (categoryName == null || categoryName.isBlank()) ? null : categoryName.trim().toLowerCase();
 
         Page<PettyCashTransaction> entityPage = transactionRepository.findFilteredPaginated(
-                startDate, endDate, type, categoryParam, searchParam, pageable);
+                startDate,
+                startDate != null,
+                endDate,
+                endDate != null,
+                type,
+                type != null,
+                categoryParam,
+                categoryParam != null,
+                searchParam,
+                searchParam != null,
+                pageable);
 
         log.info("getPaginatedTransactions response: totalElements={}, totalPages={}, numberOfElements={}",
                 entityPage.getTotalElements(), entityPage.getTotalPages(), entityPage.getNumberOfElements());

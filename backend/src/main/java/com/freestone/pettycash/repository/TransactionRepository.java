@@ -45,29 +45,34 @@ public interface TransactionRepository extends JpaRepository<PettyCashTransactio
     @Query(value = "SELECT t FROM PettyCashTransaction t " +
            "LEFT JOIN FETCH t.category " +
            "LEFT JOIN FETCH t.subcategory " +
-           "WHERE (:startDate IS NULL OR t.date >= :startDate) " +
-           "AND (:endDate IS NULL OR t.date <= :endDate) " +
-           "AND (:type IS NULL OR t.type = :type) " +
-           "AND (:categoryName IS NULL OR LOWER(t.category.name) = :categoryName) " +
-           "AND (:search IS NULL OR LOWER(t.description) LIKE :search " +
+           "WHERE (:hasStartDate = false OR t.date >= :startDate) " +
+           "AND (:hasEndDate = false OR t.date <= :endDate) " +
+           "AND (:hasType = false OR t.type = :type) " +
+           "AND (:hasCategoryName = false OR LOWER(t.category.name) = :categoryName) " +
+           "AND (:hasSearch = false OR LOWER(t.description) LIKE :search " +
            "OR LOWER(t.payee) LIKE :search " +
            "OR LOWER(t.transactionNo) LIKE :search " +
            "OR LOWER(t.payer) LIKE :search)",
            countQuery = "SELECT COUNT(t) FROM PettyCashTransaction t " +
-           "WHERE (:startDate IS NULL OR t.date >= :startDate) " +
-           "AND (:endDate IS NULL OR t.date <= :endDate) " +
-           "AND (:type IS NULL OR t.type = :type) " +
-           "AND (:categoryName IS NULL OR LOWER(t.category.name) = :categoryName) " +
-           "AND (:search IS NULL OR LOWER(t.description) LIKE :search " +
+           "WHERE (:hasStartDate = false OR t.date >= :startDate) " +
+           "AND (:hasEndDate = false OR t.date <= :endDate) " +
+           "AND (:hasType = false OR t.type = :type) " +
+           "AND (:hasCategoryName = false OR LOWER(t.category.name) = :categoryName) " +
+           "AND (:hasSearch = false OR LOWER(t.description) LIKE :search " +
            "OR LOWER(t.payee) LIKE :search " +
            "OR LOWER(t.transactionNo) LIKE :search " +
            "OR LOWER(t.payer) LIKE :search)")
     Page<PettyCashTransaction> findFilteredPaginated(
             @Param("startDate") LocalDate startDate,
+            @Param("hasStartDate") boolean hasStartDate,
             @Param("endDate") LocalDate endDate,
+            @Param("hasEndDate") boolean hasEndDate,
             @Param("type") TransactionType type,
+            @Param("hasType") boolean hasType,
             @Param("categoryName") String categoryName,
+            @Param("hasCategoryName") boolean hasCategoryName,
             @Param("search") String search,
+            @Param("hasSearch") boolean hasSearch,
             Pageable pageable
     );
 }
