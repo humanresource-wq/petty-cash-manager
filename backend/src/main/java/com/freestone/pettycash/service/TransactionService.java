@@ -235,12 +235,12 @@ public class TransactionService {
 
         if (transaction.getCreatedAt() != null) {
             LocalDateTime limit = transaction.getCreatedAt()
-                    .plusMonths(appProperties.getEditLimit().getMonths())
-                    .plusDays(appProperties.getEditLimit().getDays());
+                    .plusMonths(appProperties.getTransaction().getEditLimit().getMonths())
+                    .plusDays(appProperties.getTransaction().getEditLimit().getDays());
             if (LocalDateTime.now().isAfter(limit)) {
                 throw new IllegalArgumentException("Transaction cannot be edited after " +
-                        appProperties.getEditLimit().getMonths() + " month(s) and " +
-                        appProperties.getEditLimit().getDays() + " day(s) from recording.");
+                        appProperties.getTransaction().getEditLimit().getMonths() + " month(s) and " +
+                        appProperties.getTransaction().getEditLimit().getDays() + " day(s) from recording.");
             }
         }
 

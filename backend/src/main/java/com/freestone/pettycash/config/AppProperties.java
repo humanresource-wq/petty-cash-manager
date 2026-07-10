@@ -19,12 +19,21 @@ public class AppProperties {
     /**
      * List of registered companies for petty cash records.
      */
-    private List<String> companies = List.of("Freestone Infotech LLP", "Codemine Technologies");
+    private List<String> companies = List.of("Freestone Infotech LLP", "Freestone Infotech PVT LTD");
 
     /**
-     * Threshold limit window after which transactions are locked and cannot be edited.
+     * Nested configuration properties under "app.transaction".
      */
-    private EditLimit editLimit = new EditLimit();
+    private TransactionConfig transaction = new TransactionConfig();
+
+    @Getter
+    @Setter
+    public static class TransactionConfig {
+        /**
+         * Threshold limit window after which transactions are locked and cannot be edited.
+         */
+        private EditLimit editLimit = new EditLimit();
+    }
 
     @Getter
     @Setter

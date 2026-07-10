@@ -27,8 +27,8 @@ public abstract class TransactionMapper {
             return true;
         }
         LocalDateTime limit = transaction.getCreatedAt()
-                .plusMonths(appProperties.getEditLimit().getMonths())
-                .plusDays(appProperties.getEditLimit().getDays());
+                .plusMonths(appProperties.getTransaction().getEditLimit().getMonths())
+                .plusDays(appProperties.getTransaction().getEditLimit().getDays());
         return LocalDateTime.now().isBefore(limit);
     }
 }
