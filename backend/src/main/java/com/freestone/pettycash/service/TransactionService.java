@@ -4,6 +4,7 @@ import com.freestone.pettycash.dto.CashBoxResponse;
 import com.freestone.pettycash.dto.DashboardStatsResponse;
 import com.freestone.pettycash.dto.TransactionRequest;
 import com.freestone.pettycash.dto.TransactionResponse;
+import com.freestone.pettycash.dto.TransactionUpdateRequest;
 import com.freestone.pettycash.exception.InsufficientBalanceException;
 import com.freestone.pettycash.exception.ResourceNotFoundException;
 import com.freestone.pettycash.mapper.TransactionMapper;
@@ -222,6 +223,69 @@ public class TransactionService {
 
         transaction.setReceiptStatus(status);
         return mapper.toResponse(transactionRepository.save(transaction));
+    }
+
+    @Transactional
+    public TransactionResponse updateTransaction(Long id, TransactionUpdateRequest request) {
+        PettyCashTransaction transaction = transactionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction", "id", id));
+
+        CashBox box = cashBoxRepository.findById(1L)
+                .orElseThrow(() -> new IllegalStateException("Cash Box system is not initialized"));
+
+        BigDecimal oldAmount = transaction.getAmount();
+        BigDecimal newAmount = request.amount();
+
+        // Adjust cashbox balance only if amount changed
+        if (oldAmount.compareTo(newAmount) != 0) {
+            if (transaction.getType() == TransactionType.EXPENSE) {
+                // Reverse old deduction, apply new deduction
+                BigDecimal restoredBalance = box.getBalance().add(oldAmount);
+                if (restoredBalance.compareTo(newAmount) < 0) {
+                    throw new InsufficientBalanceException(newAmount, restoredBalance);
+                }
+                box.setBalance(restoredBalance.subtract(newAmount));
+            } else {
+                // TOPUP: reverse old credit, apply new credit
+                box.setBalance(box.getBalance().subtract(oldAmount).add(newAmount));
+            }
+            cashBoxRepository.save(box);
+        }
+
+        // Update editable fields
+        transaction.setAmount(newAmount);
+        transaction.setDescription(request.description());
+        transaction.setDate(request.date());
+        transaction.setPayee(request.payee());
+        transaction.setVoucherNumber(request.voucherNumber().trim());
+        transaction.setCompany(request.company().trim());
+
+        // Update category / subcategory (only for EXPENSE)
+        if (transaction.getType() == TransactionType.EXPENSE) {
+            if (request.categoryId() == null) {
+                throw new IllegalArgumentException("Category must be provided for expense transactions");
+            }
+            Category category = categoryRepository.findById(request.categoryId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Category", "id", request.categoryId()));
+            transaction.setCategory(category);
+
+            if (request.subcategoryId() != null) {
+                Subcategory subcategory = subcategoryRepository.findById(request.subcategoryId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Subcategory", "id", request.subcategoryId()));
+                if (!subcategory.getCategory().getId().equals(category.getId())) {
+                    throw new IllegalArgumentException("Subcategory does not belong to the selected Category");
+                }
+                transaction.setSubcategory(subcategory);
+            } else {
+                transaction.setSubcategory(null);
+            }
+        }
+
+        transaction = transactionRepository.save(transaction);
+        log.info("Updated transaction {} (Type: {}, OldAmount: {}, NewAmount: {})",
+                transaction.getTransactionNo(), transaction.getType(), oldAmount, newAmount);
+
+        return mapper.toResponse(transaction);
     }
 
     public CashBoxResponse getCashBoxDetails() {

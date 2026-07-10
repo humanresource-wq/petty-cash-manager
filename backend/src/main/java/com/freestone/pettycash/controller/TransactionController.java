@@ -4,6 +4,7 @@ import com.freestone.pettycash.dto.CashBoxResponse;
 import com.freestone.pettycash.dto.DashboardStatsResponse;
 import com.freestone.pettycash.dto.TransactionRequest;
 import com.freestone.pettycash.dto.TransactionResponse;
+import com.freestone.pettycash.dto.TransactionUpdateRequest;
 import com.freestone.pettycash.model.PettyCashTransaction;
 import com.freestone.pettycash.model.ReceiptStatus;
 import com.freestone.pettycash.model.Role;
@@ -151,6 +152,14 @@ public class TransactionController {
                 .contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"voucher-" + id + ".pdf\"")
                 .body(bytes);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<TransactionResponse> updateTransaction(
+            @PathVariable Long id,
+            @Valid @RequestBody TransactionUpdateRequest request) {
+        return ResponseEntity.ok(transactionService.updateTransaction(id, request));
     }
 
     @PutMapping("/{id}/receipt-status")

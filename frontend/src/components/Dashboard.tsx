@@ -10,6 +10,7 @@ import type {
 } from '../types';
 import { TransactionModal } from './TransactionModal';
 import { AdminPanel } from './AdminPanel';
+import { EditTransactionModal } from './EditTransactionModal';
 import {
   ResponsiveContainer,
   BarChart,
@@ -55,6 +56,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
     }
   };
 
+  // Derive the correct MIME type from the receipt filename extension
+  const getMimeType = (filename: string): string => {
+    const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+    const map: Record<string, string> = {
+      pdf: 'application/pdf',
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      gif: 'image/gif',
+      webp: 'image/webp',
+      bmp: 'image/bmp',
+      svg: 'image/svg+xml',
+      tiff: 'image/tiff',
+      tif: 'image/tiff',
+    };
+    return map[ext] ?? 'image/png'; // safe default for unrecognised image types
+  };
+
   const [activeTab, setActiveTab] = useState<'dashboard' | 'transactions' | 'settings'>('dashboard');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastTimeoutId, setToastTimeoutId] = useState<any>(null);
@@ -91,6 +110,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
   // Modals
   const [isTxModalOpen, setIsTxModalOpen] = useState<boolean>(false);
   const [txModalDefaultType, setTxModalDefaultType] = useState<'EXPENSE' | 'TOPUP'>('EXPENSE');
+  const [editingTx, setEditingTx] = useState<TransactionResponse | null>(null);
 
   // Previews
   const [previewTx, setPreviewTx] = useState<TransactionResponse | null>(null);
@@ -205,8 +225,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
     setPreviewLoading(true);
     try {
       const blob = await api.transactions.downloadReceipt(tx.id);
-      const isPdf = tx.receiptName.toLowerCase().endsWith('.pdf');
-      const mimeType = isPdf ? 'application/pdf' : 'image/png';
+      // Detect the correct MIME type from the filename extension so the
+      // browser can decode the image correctly (not just image/png for everything)
+      const mimeType = getMimeType(tx.receiptName);
       const typedBlob = new Blob([blob], { type: mimeType });
       const url = URL.createObjectURL(typedBlob);
       setPreviewUrl(url);
@@ -780,6 +801,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                           <th className="p-3 font-semibold uppercase tracking-wider">Receipt</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Voucher</th>
                           <th className="p-3 font-semibold uppercase tracking-wider text-right">Amount</th>
+                          {currentUser.role === 'ADMIN' && (
+                            <th className="p-3 font-semibold uppercase tracking-wider text-center">Actions</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -836,6 +860,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                               {t.type === 'TOPUP' ? '+' : '-'}₹
                               {t.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </td>
+                            {currentUser.role === 'ADMIN' && (
+                              <td className="p-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingTx(t)}
+                                  title="Edit transaction"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-indigo-600/20 border border-slate-700 hover:border-indigo-500/50 text-slate-400 hover:text-indigo-300 text-[10px] font-bold transition cursor-pointer active:scale-95"
+                                >
+                                  ✏️ Edit
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                         {getFilteredTransactions().length === 0 && (
@@ -941,6 +977,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
         defaultType={txModalDefaultType}
       />
 
+      {/* Edit Transaction Modal */}
+      <EditTransactionModal
+        transaction={editingTx}
+        isOpen={editingTx !== null}
+        onClose={() => setEditingTx(null)}
+        onSuccess={fetchInitialData}
+        categories={categories}
+        toast={showToast}
+      />
+
       {/* Inline Receipt Previewer Modal */}
       {previewTx && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-99 flex items-center justify-center p-4">
@@ -995,6 +1041,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                       src={previewUrl}
                       alt="Inline Receipt View"
                       className="max-w-full max-h-full object-contain rounded-lg border border-slate-800 bg-slate-950 shadow-inner"
+                      onError={(e) => {
+                        // If image fails to load, fall back to a download prompt
+                        e.currentTarget.style.display = 'none';
+                        const parent = e.currentTarget.parentElement;
+                        if (parent && !parent.querySelector('.img-load-err')) {
+                          const el = document.createElement('div');
+                          el.className = 'img-load-err flex flex-col items-center gap-2 text-slate-400';
+                          el.innerHTML = '<div style="font-size:2rem">🖼️</div><div style="font-size:0.75rem;font-weight:600">Preview unavailable — click Download Copy to open the file.</div>';
+                          parent.appendChild(el);
+                        }
+                      }}
                     />
                   </div>
                 )

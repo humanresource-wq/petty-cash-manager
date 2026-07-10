@@ -2,6 +2,7 @@ package com.freestone.pettycash.service;
 
 import com.freestone.pettycash.dto.TransactionRequest;
 import com.freestone.pettycash.dto.TransactionResponse;
+import com.freestone.pettycash.dto.TransactionUpdateRequest;
 import com.freestone.pettycash.exception.InsufficientBalanceException;
 import com.freestone.pettycash.model.*;
 import com.freestone.pettycash.repository.CashBoxRepository;
@@ -239,5 +240,199 @@ class TransactionServiceTest {
         assertThat(failures)
                 .as("Version conflicts should block overlapping concurrent edits")
                 .isGreaterThan(0);
+    }
+
+    // ─── updateTransaction tests ────────────────────────────────────────────
+
+    @Test
+    @DisplayName("Updating expense amount upwards deducts more from cashbox")
+    @Transactional
+    void updateExpenseAmountUpwardsReducesBalance() throws Exception {
+        // Setup: cashbox with 5000, record 200 expense → balance 4800
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(5000.00));
+        cashBoxRepository.save(box);
+
+        TransactionRequest createReq = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(200.00),
+                "Original expense",
+                LocalDate.now(),
+                "John",
+                testCategory.getId(),
+                null,
+                "Voc-upd-001",
+                "Freestone Infotech LLP"
+        );
+        TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
+        assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("4800.00");
+
+        // Edit: raise amount to 500 → balance should go from 4800 → (4800+200-500) = 4500
+        TransactionUpdateRequest updateReq = new TransactionUpdateRequest(
+                BigDecimal.valueOf(500.00),
+                "Updated expense",
+                LocalDate.now(),
+                "John",
+                testCategory.getId(),
+                null,
+                "Voc-upd-001",
+                "Freestone Infotech LLP"
+        );
+        TransactionResponse updated = transactionService.updateTransaction(created.id(), updateReq);
+        assertThat(updated.amount()).isEqualByComparingTo("500.00");
+        assertThat(updated.description()).isEqualTo("Updated expense");
+        assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("4500.00");
+    }
+
+    @Test
+    @DisplayName("Updating expense amount downwards returns difference to cashbox")
+    @Transactional
+    void updateExpenseAmountDownwardsIncreasesBalance() throws Exception {
+        // Setup: cashbox 3000, record 1000 expense → balance 2000
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(3000.00));
+        cashBoxRepository.save(box);
+
+        TransactionRequest createReq = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(1000.00),
+                "Overstated expense",
+                LocalDate.now(),
+                "Alice",
+                testCategory.getId(),
+                null,
+                "Voc-upd-002",
+                "Freestone Infotech LLP"
+        );
+        TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
+        assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("2000.00");
+
+        // Edit: lower to 600 → balance should go 2000+1000-600 = 2400
+        TransactionUpdateRequest updateReq = new TransactionUpdateRequest(
+                BigDecimal.valueOf(600.00),
+                "Corrected expense",
+                LocalDate.now(),
+                "Alice",
+                testCategory.getId(),
+                null,
+                "Voc-upd-002",
+                "Freestone Infotech LLP"
+        );
+        TransactionResponse updated = transactionService.updateTransaction(created.id(), updateReq);
+        assertThat(updated.amount()).isEqualByComparingTo("600.00");
+        assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("2400.00");
+    }
+
+    @Test
+    @DisplayName("Updating topup amount adjusts cashbox balance correctly")
+    @Transactional
+    void updateTopupAmountAdjustsCashbox() throws Exception {
+        // Record topup of 5000 → balance = 5000
+        TransactionRequest createReq = new TransactionRequest(
+                TransactionType.TOPUP,
+                BigDecimal.valueOf(5000.00),
+                "Initial topup",
+                LocalDate.now(),
+                "Bank",
+                null,
+                null,
+                "Voc-upd-003",
+                "Freestone Infotech LLP"
+        );
+        TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
+        assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("5000.00");
+
+        // Edit: change to 7000 → balance should be 5000-5000+7000 = 7000
+        TransactionUpdateRequest updateReq = new TransactionUpdateRequest(
+                BigDecimal.valueOf(7000.00),
+                "Corrected topup",
+                LocalDate.now(),
+                null,
+                null,
+                null,
+                "Voc-upd-003",
+                "Freestone Infotech LLP"
+        );
+        transactionService.updateTransaction(created.id(), updateReq);
+        assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("7000.00");
+    }
+
+    @Test
+    @DisplayName("Updating expense with unchanged amount should NOT alter cashbox balance")
+    @Transactional
+    void updateWithUnchangedAmountDoesNotAlterBalance() throws Exception {
+        // Setup: cashbox 2000, record 300 expense → balance 1700
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(2000.00));
+        cashBoxRepository.save(box);
+
+        TransactionRequest createReq = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(300.00),
+                "Fixed expense",
+                LocalDate.now(),
+                "Bob",
+                testCategory.getId(),
+                null,
+                "Voc-upd-004",
+                "Freestone Infotech LLP"
+        );
+        TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
+        assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("1700.00");
+
+        // Edit only description — amount stays 300
+        TransactionUpdateRequest updateReq = new TransactionUpdateRequest(
+                BigDecimal.valueOf(300.00),
+                "Description corrected only",
+                LocalDate.now(),
+                "Bob",
+                testCategory.getId(),
+                null,
+                "Voc-upd-004",
+                "Freestone Infotech LLP"
+        );
+        TransactionResponse updated = transactionService.updateTransaction(created.id(), updateReq);
+        assertThat(updated.description()).isEqualTo("Description corrected only");
+        // Balance must remain unchanged
+        assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("1700.00");
+    }
+
+    @Test
+    @DisplayName("Updating expense to amount exceeding available cashbox balance throws InsufficientBalanceException")
+    @Transactional
+    void updateExpenseExceedingBalanceThrows() throws Exception {
+        // Setup: cashbox 500, record 400 expense → balance 100
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(500.00));
+        cashBoxRepository.save(box);
+
+        TransactionRequest createReq = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(400.00),
+                "Near-limit expense",
+                LocalDate.now(),
+                "Carol",
+                testCategory.getId(),
+                null,
+                "Voc-upd-005",
+                "Freestone Infotech LLP"
+        );
+        TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
+        assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("100.00");
+
+        // Try to edit amount to 9999 — way over available balance (100+400=500 restored, but 9999>500)
+        TransactionUpdateRequest updateReq = new TransactionUpdateRequest(
+                BigDecimal.valueOf(9999.00),
+                "Near-limit expense",
+                LocalDate.now(),
+                "Carol",
+                testCategory.getId(),
+                null,
+                "Voc-upd-005",
+                "Freestone Infotech LLP"
+        );
+        assertThatThrownBy(() -> transactionService.updateTransaction(created.id(), updateReq))
+                .isInstanceOf(InsufficientBalanceException.class)
+                .hasMessageContaining("Insufficient balance in Cash Box");
     }
 }
