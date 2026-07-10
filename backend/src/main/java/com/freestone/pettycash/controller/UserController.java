@@ -41,8 +41,7 @@ public class UserController {
             throw new IllegalArgumentException("User with email '%s' already exists".formatted(request.email()));
         }
 
-        // Standard user ID defaults to username part of email if not provided
-        String id = request.email().split("@")[0].toLowerCase();
+        String id = java.util.UUID.randomUUID().toString();
         User user = new User(id, request.email(), request.name(), request.role());
         return ResponseEntity.ok(userMapper.toResponse(userRepository.save(user)));
     }
