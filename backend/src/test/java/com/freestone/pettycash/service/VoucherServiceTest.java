@@ -36,6 +36,8 @@ class VoucherServiceTest {
                 category,
                 subcategory
         );
+        transaction.setVoucherNumber("Voc-001-09-12-2026");
+        transaction.setCompany("Freestone Infotech LLP");
 
         byte[] pdfBytes = voucherService.generateTransactionVoucher(transaction);
 

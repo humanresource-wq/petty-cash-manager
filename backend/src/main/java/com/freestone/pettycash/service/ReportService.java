@@ -25,12 +25,14 @@ public class ReportService {
     public byte[] generateCsvReport(List<PettyCashTransaction> list) {
         StringBuilder csv = new StringBuilder();
         // CSV Header row
-        csv.append("Date & Time,Transaction No,Type,Description,Category,Subcategory,Payer,Payee,Amount,Receipt Status\n");
+        csv.append("Date & Time,Transaction No,Voucher Number,Company,Type,Description,Category,Subcategory,Payer,Payee,Amount,Receipt Status\n");
 
         for (PettyCashTransaction t : list) {
             LocalDateTime ts = t.getTimestamp() != null ? t.getTimestamp() : t.getDate().atStartOfDay();
             csv.append(escapeCsvField(ts.format(DATETIME_FORMATTER))).append(",");
             csv.append(escapeCsvField(t.getTransactionNo())).append(",");
+            csv.append(escapeCsvField(t.getVoucherNumber() != null ? t.getVoucherNumber() : "")).append(",");
+            csv.append(escapeCsvField(t.getCompany() != null ? t.getCompany() : "")).append(",");
             csv.append(t.getType().name()).append(",");
             csv.append(escapeCsvField(t.getDescription())).append(",");
             csv.append(escapeCsvField(t.getCategory() != null ? t.getCategory().getName() : "")).append(",");
@@ -121,12 +123,12 @@ public class ReportService {
             document.add(summaryTable);
 
             // 3. Transactions Table
-            PdfPTable table = new PdfPTable(new float[]{1.8f, 1.3f, 1.8f, 3.2f, 1.0f, 1.2f});
+            PdfPTable table = new PdfPTable(new float[]{1.8f, 1.1f, 1.4f, 1.4f, 1.4f, 2.3f, 0.8f, 1.0f});
             table.setWidthPercentage(100);
             table.setSpacingAfter(30);
 
             // Table headers
-            String[] headers = {"Date & Time", "Transaction No", "Category", "Description", "Type", "Amount"};
+            String[] headers = {"Date & Time", "Tx No", "Voucher No", "Company", "Category", "Description", "Type", "Amount"};
             for (String header : headers) {
                 PdfPCell cell = new PdfPCell(new Paragraph(header, tableHeaderFont));
                 cell.setBackgroundColor(Color.decode("#1e293b"));
@@ -143,6 +145,10 @@ public class ReportService {
                 table.addCell(createTableCell(ts.format(DATETIME_FORMATTER), tableBodyFont, false, false));
                 // Tx No
                 table.addCell(createTableCell(t.getTransactionNo(), tableBodyFont, false, false));
+                // Voucher No
+                table.addCell(createTableCell(t.getVoucherNumber() != null ? t.getVoucherNumber() : "—", tableBodyFont, false, false));
+                // Company
+                table.addCell(createTableCell(t.getCompany() != null ? t.getCompany() : "—", tableBodyFont, false, false));
                 // Category
                 String cat = t.getCategory() != null ? t.getCategory().getName() : "—";
                 if (t.getSubcategory() != null) {
@@ -160,7 +166,7 @@ public class ReportService {
 
             if (list.isEmpty()) {
                 PdfPCell emptyCell = new PdfPCell(new Paragraph("No matching transactions recorded inside this date scope.", tableBodyFont));
-                emptyCell.setColspan(6);
+                emptyCell.setColspan(8);
                 emptyCell.setPadding(12);
                 emptyCell.setHorizontalAlignment(Element.ALIGN_CENTER);
                 emptyCell.setBorderColor(Color.decode("#cbd5e1"));

@@ -7,9 +7,11 @@ import type {
   UserResponse,
   CashBoxResponse,
   DashboardStatsResponse,
+  AppConfig,
 } from '../types';
 import { TransactionModal } from './TransactionModal';
 import { AdminPanel } from './AdminPanel';
+import { EditTransactionModal } from './EditTransactionModal';
 import {
   ResponsiveContainer,
   BarChart,
@@ -26,11 +28,12 @@ import {
 interface DashboardProps {
   currentUser: UserResponse;
   onLogout: () => void;
+  config: AppConfig;
 }
 
 const PALETTE = ['#6366f1', '#a855f7', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#f43f5e', '#84cc16'];
 
-export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, config }) => {
   const formatDateTime = (timestampStr: string | null) => {
     if (!timestampStr) return '—';
     try {
@@ -53,6 +56,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
     } catch (e) {
       return timestampStr;
     }
+  };
+
+  // Derive the correct MIME type from the receipt filename extension
+  const getMimeType = (filename: string): string => {
+    const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+    const map: Record<string, string> = {
+      pdf: 'application/pdf',
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      gif: 'image/gif',
+      webp: 'image/webp',
+      bmp: 'image/bmp',
+      svg: 'image/svg+xml',
+      tiff: 'image/tiff',
+      tif: 'image/tiff',
+    };
+    return map[ext] ?? 'image/png'; // safe default for unrecognised image types
   };
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'transactions' | 'settings'>('dashboard');
@@ -91,6 +112,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
   // Modals
   const [isTxModalOpen, setIsTxModalOpen] = useState<boolean>(false);
   const [txModalDefaultType, setTxModalDefaultType] = useState<'EXPENSE' | 'TOPUP'>('EXPENSE');
+  const [editingTx, setEditingTx] = useState<TransactionResponse | null>(null);
 
   // Previews
   const [previewTx, setPreviewTx] = useState<TransactionResponse | null>(null);
@@ -205,8 +227,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
     setPreviewLoading(true);
     try {
       const blob = await api.transactions.downloadReceipt(tx.id);
-      const isPdf = tx.receiptName.toLowerCase().endsWith('.pdf');
-      const mimeType = isPdf ? 'application/pdf' : 'image/png';
+      // Detect the correct MIME type from the filename extension so the
+      // browser can decode the image correctly (not just image/png for everything)
+      const mimeType = getMimeType(tx.receiptName);
       const typedBlob = new Blob([blob], { type: mimeType });
       const url = URL.createObjectURL(typedBlob);
       setPreviewUrl(url);
@@ -772,12 +795,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                         <tr className="bg-slate-950 border-b border-slate-800 text-slate-400">
                           <th className="p-3 font-semibold uppercase tracking-wider">Date & Time</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Tx No</th>
+                          <th className="p-3 font-semibold uppercase tracking-wider">Voucher No</th>
+                          <th className="p-3 font-semibold uppercase tracking-wider">Company</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Description</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Payee</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Paid by</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Receipt</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Voucher</th>
                           <th className="p-3 font-semibold uppercase tracking-wider text-right">Amount</th>
+                          {currentUser.role === 'ADMIN' && (
+                            <th className="p-3 font-semibold uppercase tracking-wider text-center">Actions</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -785,6 +813,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                           <tr key={t.id} className="border-b border-slate-900 hover:bg-slate-900/30">
                             <td className="p-3 text-slate-300 font-medium whitespace-nowrap">{formatDateTime(t.timestamp)}</td>
                             <td className="p-3 text-slate-400 font-mono">{t.transactionNo}</td>
+                            <td className="p-3 text-slate-400 font-mono">{t.voucherNumber}</td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                t.company === 'Freestone Infotech LLP' 
+                                  ? 'bg-blue-950/60 text-blue-400 border border-blue-900/40' 
+                                  : 'bg-purple-950/60 text-purple-400 border border-purple-900/40'
+                              }`}>
+                                {t.company}
+                              </span>
+                            </td>
                             <td className="p-3 max-w-[200px] truncate">
                               <div className="font-bold text-slate-200 truncate">{t.description}</div>
                               <div className="text-[10px] text-slate-500 mt-0.5 truncate">
@@ -805,20 +843,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                               ) : null}
                             </td>
                             <td className="p-3">
-                              {t.type === 'EXPENSE' ? (
-                                <button
-                                  onClick={() => handleDownloadVoucher(t.id, t.transactionNo)}
-                                  className={`text-[10px] font-bold px-2 py-0.5 rounded border transition ${
-                                    t.voucherFileId
-                                      ? 'bg-indigo-950 text-indigo-400 border-indigo-900 hover:bg-indigo-900/30'
-                                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-900'
-                                  }`}
-                                >
-                                  🧾 Voucher
-                                </button>
-                              ) : (
-                                <span className="text-slate-600">—</span>
-                              )}
+                              <button
+                                onClick={() => handleDownloadVoucher(t.id, t.transactionNo)}
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded border transition ${
+                                  t.voucherFileId
+                                    ? 'bg-indigo-950 text-indigo-400 border-indigo-900 hover:bg-indigo-900/30'
+                                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-900'
+                                }`}
+                              >
+                                🧾 Voucher
+                              </button>
                             </td>
                             <td
                               className={`p-3 text-right font-extrabold whitespace-nowrap ${
@@ -828,6 +862,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                               {t.type === 'TOPUP' ? '+' : '-'}₹
                               {t.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </td>
+                            {currentUser.role === 'ADMIN' && (
+                              <td className="p-3 text-center">
+                                {t.editable ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingTx(t)}
+                                    title="Edit transaction"
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-indigo-600/20 border border-slate-700 hover:border-indigo-500/50 text-slate-400 hover:text-indigo-300 text-[10px] font-bold transition cursor-pointer active:scale-95"
+                                  >
+                                    ✏️ Edit
+                                  </button>
+                                ) : (
+                                  <span className="text-slate-500 font-bold select-none text-[10px]" title="This transaction is locked and cannot be edited.">
+                                    🔒 Locked
+                                  </span>
+                                )}
+                              </td>
+                            )}
                           </tr>
                         ))}
                         {getFilteredTransactions().length === 0 && (
@@ -931,6 +983,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
         templates={templates}
         toast={showToast}
         defaultType={txModalDefaultType}
+        companies={config.companies}
+      />
+
+      {/* Edit Transaction Modal */}
+      <EditTransactionModal
+        transaction={editingTx}
+        isOpen={editingTx !== null}
+        onClose={() => setEditingTx(null)}
+        onSuccess={fetchInitialData}
+        categories={categories}
+        toast={showToast}
+        companies={config.companies}
       />
 
       {/* Inline Receipt Previewer Modal */}
@@ -987,6 +1051,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout }) =
                       src={previewUrl}
                       alt="Inline Receipt View"
                       className="max-w-full max-h-full object-contain rounded-lg border border-slate-800 bg-slate-950 shadow-inner"
+                      onError={(e) => {
+                        // If image fails to load, fall back to a download prompt
+                        e.currentTarget.style.display = 'none';
+                        const parent = e.currentTarget.parentElement;
+                        if (parent && !parent.querySelector('.img-load-err')) {
+                          const el = document.createElement('div');
+                          el.className = 'img-load-err flex flex-col items-center gap-2 text-slate-400';
+                          el.innerHTML = '<div style="font-size:2rem">🖼️</div><div style="font-size:0.75rem;font-weight:600">Preview unavailable — click Download Copy to open the file.</div>';
+                          parent.appendChild(el);
+                        }
+                      }}
                     />
                   </div>
                 )

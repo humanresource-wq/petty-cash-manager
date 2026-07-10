@@ -10,6 +10,7 @@ import com.freestone.pettycash.repository.UserRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -40,8 +41,7 @@ public class UserController {
             throw new IllegalArgumentException("User with email '%s' already exists".formatted(request.email()));
         }
 
-        // Standard user ID defaults to username part of email if not provided
-        String id = request.email().split("@")[0].toLowerCase();
+        String id = java.util.UUID.randomUUID().toString();
         User user = new User(id, request.email(), request.name(), request.role());
         return ResponseEntity.ok(userMapper.toResponse(userRepository.save(user)));
     }
@@ -62,7 +62,7 @@ public class UserController {
             @NotBlank(message = "Email must not be blank")
             @Email(message = "Invalid email format")
             String email,
-            @NotBlank(message = "Role must not be blank")
+            @NotNull(message = "Role must not be null")
             Role role
     ) {}
 }

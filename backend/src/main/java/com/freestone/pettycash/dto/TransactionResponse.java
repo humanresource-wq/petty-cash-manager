@@ -24,5 +24,8 @@ public record TransactionResponse(
         ReceiptStatus receiptStatus,
         String receiptFileId,
         String receiptName,
-        String voucherFileId
+        String voucherFileId,
+        String voucherNumber,
+        String company,
+        boolean editable
 ) {}

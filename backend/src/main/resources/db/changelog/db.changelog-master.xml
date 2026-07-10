@@ -8,5 +8,7 @@
     <!-- Include all changesets in order -->
     <include file="db/changelog/changes/001-baseline.xml"/>
     <include file="db/changelog/changes/002-core-entities.xml"/>
+    <include file="db/changelog/changes/004-voucher-company-fields.xml"/>
+    <include file="db/changelog/changes/005-fix-sequences.xml"/>
 
 </databaseChangeLog>

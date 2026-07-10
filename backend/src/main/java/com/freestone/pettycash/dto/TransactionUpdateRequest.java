@@ -1,6 +1,5 @@
 package com.freestone.pettycash.dto;
 
-import com.freestone.pettycash.model.TransactionType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -8,10 +7,11 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-public record TransactionRequest(
-        @NotNull(message = "Transaction type must not be null")
-        TransactionType type,
-
+/**
+ * Request DTO for updating an existing petty cash transaction.
+ * Transaction type is immutable — changing it requires a reversal entry.
+ */
+public record TransactionUpdateRequest(
         @NotNull(message = "Amount must not be null")
         @DecimalMin(value = "0.01", message = "Amount must be greater than zero")
         BigDecimal amount,
@@ -22,11 +22,11 @@ public record TransactionRequest(
         @NotNull(message = "Date must not be null")
         LocalDate date,
 
-        String payee, // Optional (recipient)
+        String payee,
 
-        Long categoryId, // Optional (mandatory for expense)
+        Long categoryId,
 
-        Long subcategoryId, // Optional
+        Long subcategoryId,
 
         @NotBlank(message = "Voucher number must not be blank")
         String voucherNumber,

@@ -11,6 +11,7 @@ interface TransactionModalProps {
   templates: ExpenseTemplate[];
   toast: (msg: string) => void;
   defaultType?: 'EXPENSE' | 'TOPUP';
+  companies: string[];
 }
 
 export const TransactionModal: React.FC<TransactionModalProps> = ({
@@ -22,6 +23,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   templates,
   toast,
   defaultType,
+  companies,
 }) => {
   const [txType, setTxType] = useState<'EXPENSE' | 'TOPUP'>('EXPENSE');
   const [amount, setAmount] = useState<string>('');
@@ -31,27 +33,34 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | ''>('');
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<number | ''>('');
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | ''>('');
-  const [file, setFile] = useState<File | null>(null);
-  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const [voucherNumber, setVoucherNumber] = useState<string>('');
+  const [company, setCompany] = useState<string>('');
+  const [file, setFile] = useState<File[]>([]);
+  const [filePreviewUrls, setFilePreviewUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [dragOver, setDragOver] = useState<boolean>(false);
 
-  // Staged file preview URL generator and cleanup hook
+  // Preview URL generator for selected files — revokes old URLs on change
   useEffect(() => {
-    if (!file) {
-      setFilePreviewUrl(null);
+    // Revoke previous URLs
+    filePreviewUrls.forEach((u) => URL.revokeObjectURL(u));
+
+    if (file.length === 0) {
+      setFilePreviewUrls([]);
       return;
     }
 
-    if (file.type.startsWith('image/') || file.type === 'application/pdf') {
-      const url = URL.createObjectURL(file);
-      setFilePreviewUrl(url);
-      return () => {
-        URL.revokeObjectURL(url);
-      };
-    } else {
-      setFilePreviewUrl(null);
-    }
+    const urls = file.map((f) =>
+      f.type.startsWith('image/') || f.type === 'application/pdf'
+        ? URL.createObjectURL(f)
+        : ''
+    );
+    setFilePreviewUrls(urls);
+
+    return () => {
+      urls.forEach((u) => { if (u) URL.revokeObjectURL(u); });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file]);
 
   // Default to today's date on open
@@ -70,7 +79,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setSelectedCategoryId('');
       setSelectedSubcategoryId('');
       setSelectedTemplateId('');
-      setFile(null);
+      setVoucherNumber('');
+      setCompany(companies[0] || '');
+      setFile([]);
 
       // Force to EXPENSE if user is standard USER, otherwise defaultType
       if (currentUser.role === 'USER') {
@@ -106,8 +117,16 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      const incoming = Array.from(e.target.files);
+      setFile((prev) => {
+        // Deduplicate by name+size to avoid exact duplicates on re-select
+        const existing = new Set(prev.map((f) => f.name + f.size));
+        const fresh = incoming.filter((f) => !existing.has(f.name + f.size));
+        return [...prev, ...fresh];
+      });
+      // Reset input value so the same file(s) can be re-selected after removal
+      e.target.value = '';
     }
   };
 
@@ -123,8 +142,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const incoming = Array.from(e.dataTransfer.files);
+      setFile((prev) => {
+        const existing = new Set(prev.map((f) => f.name + f.size));
+        const fresh = incoming.filter((f) => !existing.has(f.name + f.size));
+        return [...prev, ...fresh];
+      });
     }
   };
 
@@ -135,6 +159,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       return toast('⚠️ Enter a valid positive amount.');
     }
     if (!date) return toast('⚠️ Select a valid transaction date.');
+    if (!voucherNumber.trim()) return toast('⚠️ Voucher number must not be blank.');
+    if (!company) return toast('⚠️ Select a company.');
     if (!description.trim()) return toast('⚠️ Description must not be blank.');
 
     if (txType === 'EXPENSE') {
@@ -154,6 +180,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         payee: txType === 'EXPENSE' ? payee.trim() : null,
         categoryId: txType === 'EXPENSE' ? Number(selectedCategoryId) : null,
         subcategoryId: txType === 'EXPENSE' && selectedSubcategoryId ? Number(selectedSubcategoryId) : null,
+        voucherNumber: voucherNumber.trim(),
+        company,
       };
 
       formData.append(
@@ -161,8 +189,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         new Blob([JSON.stringify(requestPayload)], { type: 'application/json' })
       );
 
-      if (file) {
-        formData.append('file', file);
+      if (file.length > 0) {
+        // Backend currently accepts one file; send the first. For multi-file,
+        // append each and the backend will receive the last one (or loop if API is extended).
+        file.forEach((f) => formData.append('file', f));
       }
 
       await api.transactions.record(formData);
@@ -255,6 +285,40 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 onChange={(e) => setDate(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-indigo-500"
               />
+            </div>
+          </div>
+
+          {/* Voucher Number & Company */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-bold">
+                Voucher Number
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Voc-001-09-12-2026"
+                value={voucherNumber}
+                onChange={(e) => setVoucherNumber(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-bold">
+                Company
+              </label>
+              <select
+                required
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-indigo-500"
+              >
+                {companies.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -356,63 +420,67 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 type="file"
                 className="hidden"
                 accept="image/*,application/pdf"
+                multiple
                 onChange={handleFileChange}
               />
-              {file ? (
+              {file.length > 0 ? (
                 <div className="w-full flex flex-col items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                  {file.type.startsWith('image/') && filePreviewUrl ? (
-                    <div className="relative group max-h-32 border border-slate-800 rounded-lg p-1 bg-slate-950/60 overflow-hidden flex items-center justify-center">
-                      <img
-                        src={filePreviewUrl}
-                        alt="Receipt Preview"
-                        className="max-h-28 object-contain rounded"
-                      />
-                    </div>
-                  ) : file.type === 'application/pdf' && filePreviewUrl ? (
-                    <div className="w-full max-w-[280px] flex flex-col items-center gap-2 border border-slate-800 rounded-lg p-3 bg-slate-950/80">
-                      <div className="flex items-center gap-3 w-full">
-                        <div className="text-red-500 font-black text-2xl tracking-tighter bg-red-950/30 border border-red-900/40 rounded px-2 py-1 select-none">
-                          PDF
+                  {/* Thumbnail strip */}
+                  <div className="w-full flex gap-2 overflow-x-auto pb-1 justify-center flex-wrap">
+                    {file.map((f, idx) => {
+                      const previewUrl = filePreviewUrls[idx];
+                      return (
+                        <div key={f.name + idx} className="relative group flex-shrink-0">
+                          {f.type.startsWith('image/') && previewUrl ? (
+                            <img
+                              src={previewUrl}
+                              alt={f.name}
+                              className="h-20 w-20 object-cover rounded-lg border border-slate-700 bg-slate-950"
+                            />
+                          ) : f.type === 'application/pdf' ? (
+                            <div className="h-20 w-20 flex flex-col items-center justify-center rounded-lg border border-slate-700 bg-slate-950">
+                              <span className="text-red-400 font-black text-xs">PDF</span>
+                              <span className="text-[9px] text-slate-500 text-center px-1 truncate w-full mt-0.5">{f.name}</span>
+                            </div>
+                          ) : (
+                            <div className="h-20 w-20 flex flex-col items-center justify-center rounded-lg border border-slate-700 bg-slate-950">
+                              <span className="text-2xl">📄</span>
+                              <span className="text-[9px] text-slate-500 text-center px-1 truncate w-full mt-0.5">{f.name}</span>
+                            </div>
+                          )}
+                          {/* Remove individual file button */}
+                          <button
+                            type="button"
+                            onClick={() => setFile((prev) => prev.filter((_, i) => i !== idx))}
+                            className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
+                            title={`Remove ${f.name}`}
+                          >
+                            ✕
+                          </button>
                         </div>
-                        <div className="text-left flex-1 min-w-0">
-                          <div className="text-xs font-bold text-slate-200 truncate">{file.name}</div>
-                          <div className="text-[10px] text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</div>
-                        </div>
-                      </div>
-                      <iframe
-                        src={filePreviewUrl}
-                        title="PDF Preview"
-                        className="w-full h-24 rounded border border-slate-900 bg-slate-900 pointer-events-none"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-full max-w-[280px] flex items-center p-3 rounded-lg border border-slate-800 bg-slate-950/80 gap-3">
-                      <div className="text-3xl select-none">📄</div>
-                      <div className="text-left flex-1 min-w-0">
-                        <div className="text-xs font-bold text-slate-200 truncate">{file.name}</div>
-                        <div className="text-[10px] text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="text-xs font-semibold text-emerald-400 mt-1 max-w-[240px] truncate">
-                    {file.name}
+                      );
+                    })}
                   </div>
-                  
+
+                  <div className="text-[10px] text-emerald-400 font-semibold">
+                    {file.length} file{file.length > 1 ? 's' : ''} selected
+                    {' '}· {(file.reduce((s, f) => s + f.size, 0) / 1024 / 1024).toFixed(2)} MB total
+                  </div>
+
                   <div className="flex gap-2 mt-1">
                     <button
                       type="button"
-                      onClick={() => setFile(null)}
+                      onClick={() => setFile([])}
                       className="text-[10px] text-red-400 hover:text-red-300 font-bold bg-red-950/40 border border-red-900/40 rounded-md px-2.5 py-1 transition flex items-center gap-1"
                     >
-                      ✕ Remove
+                      ✕ Remove All
                     </button>
                     <button
                       type="button"
                       onClick={() => document.getElementById('tx-receipt-file')?.click()}
                       className="text-[10px] text-slate-300 hover:text-white font-bold bg-slate-900 border border-slate-800 rounded-md px-2.5 py-1 transition"
                     >
-                      Replace
+                      ＋ Add More
                     </button>
                   </div>
                 </div>

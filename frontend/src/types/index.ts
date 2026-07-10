@@ -47,6 +47,9 @@ export interface TransactionResponse {
   receiptFileId: string | null;
   receiptName: string | null;
   voucherFileId: string | null;
+  voucherNumber: string;
+  company: string;
+  editable: boolean;
 }
 
 export interface CashBoxResponse {
@@ -71,6 +74,7 @@ export interface AppConfig {
     name: string;
     email: string;
   }[];
+  companies: string[];
 }
 
 export interface DashboardStatsResponse {

@@ -4,6 +4,7 @@ import com.freestone.pettycash.dto.CashBoxResponse;
 import com.freestone.pettycash.dto.DashboardStatsResponse;
 import com.freestone.pettycash.dto.TransactionRequest;
 import com.freestone.pettycash.dto.TransactionResponse;
+import com.freestone.pettycash.dto.TransactionUpdateRequest;
 import com.freestone.pettycash.exception.InsufficientBalanceException;
 import com.freestone.pettycash.exception.ResourceNotFoundException;
 import com.freestone.pettycash.mapper.TransactionMapper;
@@ -23,7 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import com.freestone.pettycash.config.AppProperties;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -39,6 +42,7 @@ public class TransactionService {
     private final GoogleDriveService googleDriveService;
     private final VoucherService voucherService;
     private final TransactionMapper mapper;
+    private final AppProperties appProperties;
 
     @Transactional
     public TransactionResponse recordTransaction(TransactionRequest request, String payerEmail, byte[] fileBytes, String filename, String mimeType) throws IOException {
@@ -50,6 +54,16 @@ public class TransactionService {
         Subcategory subcategory = null;
 
         // 2. Perform business validation
+        if (request.voucherNumber() == null || request.voucherNumber().trim().isBlank()) {
+            throw new IllegalArgumentException("Voucher number must not be blank");
+        }
+        if (request.company() == null || request.company().trim().isBlank()) {
+            throw new IllegalArgumentException("Company must not be blank");
+        }
+        if (transactionRepository.existsByVoucherNumberAndDate(request.voucherNumber().trim(), request.date())) {
+            throw new IllegalArgumentException("Voucher number '" + request.voucherNumber().trim() + "' is already registered on " + request.date());
+        }
+
         if (request.type() == TransactionType.EXPENSE) {
             if (box.getBalance().compareTo(request.amount()) < 0) {
                 throw new InsufficientBalanceException(request.amount(), box.getBalance());
@@ -94,6 +108,8 @@ public class TransactionService {
                 category,
                 subcategory
         );
+        transaction.setVoucherNumber(request.voucherNumber().trim());
+        transaction.setCompany(request.company().trim());
 
         // Save first to get the database id
         transaction = transactionRepository.save(transaction);
@@ -210,6 +226,80 @@ public class TransactionService {
 
         transaction.setReceiptStatus(status);
         return mapper.toResponse(transactionRepository.save(transaction));
+    }
+
+    @Transactional
+    public TransactionResponse updateTransaction(Long id, TransactionUpdateRequest request) {
+        PettyCashTransaction transaction = transactionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction", "id", id));
+
+        if (transaction.getCreatedAt() != null) {
+            LocalDateTime limit = transaction.getCreatedAt()
+                    .plusMonths(appProperties.getTransaction().getEditLimit().getMonths())
+                    .plusDays(appProperties.getTransaction().getEditLimit().getDays());
+            if (LocalDateTime.now().isAfter(limit)) {
+                throw new IllegalArgumentException("Transaction cannot be edited after " +
+                        appProperties.getTransaction().getEditLimit().getMonths() + " month(s) and " +
+                        appProperties.getTransaction().getEditLimit().getDays() + " day(s) from recording.");
+            }
+        }
+
+        CashBox box = cashBoxRepository.findById(1L)
+                .orElseThrow(() -> new IllegalStateException("Cash Box system is not initialized"));
+
+        BigDecimal oldAmount = transaction.getAmount();
+        BigDecimal newAmount = request.amount();
+
+        // Adjust cashbox balance only if amount changed
+        if (oldAmount.compareTo(newAmount) != 0) {
+            if (transaction.getType() == TransactionType.EXPENSE) {
+                // Reverse old deduction, apply new deduction
+                BigDecimal restoredBalance = box.getBalance().add(oldAmount);
+                if (restoredBalance.compareTo(newAmount) < 0) {
+                    throw new InsufficientBalanceException(newAmount, restoredBalance);
+                }
+                box.setBalance(restoredBalance.subtract(newAmount));
+            } else {
+                // TOPUP: reverse old credit, apply new credit
+                box.setBalance(box.getBalance().subtract(oldAmount).add(newAmount));
+            }
+            cashBoxRepository.save(box);
+        }
+
+        // Update editable fields
+        transaction.setAmount(newAmount);
+        transaction.setDescription(request.description());
+        transaction.setDate(request.date());
+        transaction.setPayee(request.payee());
+        transaction.setVoucherNumber(request.voucherNumber().trim());
+        transaction.setCompany(request.company().trim());
+
+        // Update category / subcategory (only for EXPENSE)
+        if (transaction.getType() == TransactionType.EXPENSE) {
+            if (request.categoryId() == null) {
+                throw new IllegalArgumentException("Category must be provided for expense transactions");
+            }
+            Category category = categoryRepository.findById(request.categoryId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Category", "id", request.categoryId()));
+            transaction.setCategory(category);
+
+            if (request.subcategoryId() != null) {
+                Subcategory subcategory = subcategoryRepository.findById(request.subcategoryId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Subcategory", "id", request.subcategoryId()));
+                if (!subcategory.getCategory().getId().equals(category.getId())) {
+                    throw new IllegalArgumentException("Subcategory does not belong to the selected Category");
+                }
+                transaction.setSubcategory(subcategory);
+            } else {
+                transaction.setSubcategory(null);
+            }
+        }
+
+        transaction = transactionRepository.save(transaction);
+        log.info("Updated transaction {} (Type: {}, OldAmount: {}, NewAmount: {})",
+                transaction.getTransactionNo(), transaction.getType(), oldAmount, newAmount);
+
+        return mapper.toResponse(transaction);
     }
 
     public CashBoxResponse getCashBoxDetails() {
@@ -349,7 +439,17 @@ public class TransactionService {
         String categoryParam = (categoryName == null || categoryName.isBlank()) ? null : categoryName.trim().toLowerCase();
 
         Page<PettyCashTransaction> entityPage = transactionRepository.findFilteredPaginated(
-                startDate, endDate, type, categoryParam, searchParam, pageable);
+                startDate,
+                startDate != null,
+                endDate,
+                endDate != null,
+                type,
+                type != null,
+                categoryParam,
+                categoryParam != null,
+                searchParam,
+                searchParam != null,
+                pageable);
 
         log.info("getPaginatedTransactions response: totalElements={}, totalPages={}, numberOfElements={}",
                 entityPage.getTotalElements(), entityPage.getTotalPages(), entityPage.getNumberOfElements());
