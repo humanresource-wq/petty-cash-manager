@@ -10,6 +10,7 @@ import com.freestone.pettycash.repository.UserRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -62,7 +63,7 @@ public class UserController {
             @NotBlank(message = "Email must not be blank")
             @Email(message = "Invalid email format")
             String email,
-            @NotBlank(message = "Role must not be blank")
+            @NotNull(message = "Role must not be null")
             Role role
     ) {}
 }
