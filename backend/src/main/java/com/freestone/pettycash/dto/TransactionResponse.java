@@ -14,7 +14,7 @@ public record TransactionResponse(
         BigDecimal amount,
         String description,
         LocalDate date,
-        LocalDateTime timestamp,
+        java.time.Instant timestamp,
         String payer,
         String payee,
         Long categoryId,

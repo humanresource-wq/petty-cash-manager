@@ -26,9 +26,11 @@ public abstract class TransactionMapper {
         if (transaction == null || transaction.getCreatedAt() == null) {
             return true;
         }
-        LocalDateTime limit = transaction.getCreatedAt()
+        java.time.Instant limit = transaction.getCreatedAt()
+                .atZone(java.time.ZoneOffset.UTC)
                 .plusMonths(appProperties.getTransaction().getEditLimit().getMonths())
-                .plusDays(appProperties.getTransaction().getEditLimit().getDays());
-        return LocalDateTime.now().isBefore(limit);
+                .plusDays(appProperties.getTransaction().getEditLimit().getDays())
+                .toInstant();
+        return java.time.Instant.now().isBefore(limit);
     }
 }

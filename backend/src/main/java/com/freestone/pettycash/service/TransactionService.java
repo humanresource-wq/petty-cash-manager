@@ -234,10 +234,12 @@ public class TransactionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction", "id", id));
 
         if (transaction.getCreatedAt() != null) {
-            LocalDateTime limit = transaction.getCreatedAt()
+            java.time.Instant limit = transaction.getCreatedAt()
+                    .atZone(java.time.ZoneOffset.UTC)
                     .plusMonths(appProperties.getTransaction().getEditLimit().getMonths())
-                    .plusDays(appProperties.getTransaction().getEditLimit().getDays());
-            if (LocalDateTime.now().isAfter(limit)) {
+                    .plusDays(appProperties.getTransaction().getEditLimit().getDays())
+                    .toInstant();
+            if (java.time.Instant.now().isAfter(limit)) {
                 throw new IllegalArgumentException("Transaction cannot be edited after " +
                         appProperties.getTransaction().getEditLimit().getMonths() + " month(s) and " +
                         appProperties.getTransaction().getEditLimit().getDays() + " day(s) from recording.");

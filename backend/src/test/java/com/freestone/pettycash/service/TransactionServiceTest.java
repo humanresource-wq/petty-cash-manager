@@ -518,7 +518,7 @@ class TransactionServiceTest {
         TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
         
         // Use JDBC to update the database record to 15 days ago
-        LocalDateTime fifteenDaysAgo = LocalDateTime.now().minusDays(15);
+        java.time.Instant fifteenDaysAgo = java.time.Instant.now().minus(java.time.Duration.ofDays(15));
         jdbcTemplate.update("UPDATE transactions SET created_at = ? WHERE id = ?", fifteenDaysAgo, created.id());
 
         // Clear persistence context to force reload from DB
@@ -563,7 +563,7 @@ class TransactionServiceTest {
         TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
         
         // Use JDBC to update the database record to 40 days ago (more than 1 month + 3 days)
-        LocalDateTime fortyDaysAgo = LocalDateTime.now().minusDays(40);
+        java.time.Instant fortyDaysAgo = java.time.Instant.now().minus(java.time.Duration.ofDays(40));
         jdbcTemplate.update("UPDATE transactions SET created_at = ? WHERE id = ?", fortyDaysAgo, created.id());
 
         // Clear persistence context to force reload from DB

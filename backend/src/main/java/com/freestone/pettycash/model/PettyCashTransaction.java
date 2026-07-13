@@ -47,7 +47,7 @@ public class PettyCashTransaction {
     private LocalDate date;
 
     @Column(nullable = false)
-    private LocalDateTime timestamp;
+    private java.time.Instant timestamp;
 
     @Column(nullable = false)
     private String payer; // Payer email
@@ -76,18 +76,18 @@ public class PettyCashTransaction {
     private String voucherFileId; // Google Drive file ID of the dynamically generated PDF voucher
 
     @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private java.time.Instant createdAt;
 
-    private LocalDateTime updatedAt;
+    private java.time.Instant updatedAt;
 
     public PettyCashTransaction(String transactionNo, TransactionType type, BigDecimal amount, String description,
-                                LocalDate date, String payer, String payee, Category category, Subcategory subcategory) {
+                                 LocalDate date, String payer, String payee, Category category, Subcategory subcategory) {
         this.transactionNo = transactionNo;
         this.type = type;
         this.amount = amount;
         this.description = description;
         this.date = date;
-        this.timestamp = LocalDateTime.now();
+        this.timestamp = java.time.Instant.now();
         this.payer = payer;
         this.payee = payee;
         this.category = category;
@@ -97,7 +97,7 @@ public class PettyCashTransaction {
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = java.time.Instant.now();
         this.updatedAt = this.createdAt;
         if (this.timestamp == null) {
             this.timestamp = this.createdAt;
@@ -106,6 +106,6 @@ public class PettyCashTransaction {
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = java.time.Instant.now();
     }
 }
