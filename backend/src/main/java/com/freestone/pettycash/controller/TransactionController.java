@@ -97,6 +97,23 @@ public class TransactionController {
                 .body(pdfBytes);
     }
 
+    @GetMapping("/export/vouchers")
+    public ResponseEntity<byte[]> exportVouchers(
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate
+    ) throws IOException {
+        byte[] zipBytes = transactionService.exportVouchersZip(startDate, endDate);
+
+        String filename = "vouchers-" +
+                (startDate != null ? startDate.toString() : "all") + "-to-" +
+                (endDate != null ? endDate.toString() : "all") + ".zip";
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .body(zipBytes);
+    }
+
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<TransactionResponse> recordTransaction(
             @RequestPart("request") @Valid TransactionRequest request,

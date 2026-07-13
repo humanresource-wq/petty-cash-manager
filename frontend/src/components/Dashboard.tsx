@@ -255,8 +255,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
     }
   };
 
-  const handleExport = async (format: 'csv' | 'pdf') => {
-    showToast(`📥 Preparing statement export as ${format.toUpperCase()}...`);
+  const handleExport = async (format: 'csv' | 'pdf' | 'bulk_vouchers') => {
+    showToast(`📥 Preparing statement export as ${format === 'bulk_vouchers' ? 'ZIP' : format.toUpperCase()}...`);
     try {
       const params = {
         startDate: filterStartDate || undefined,
@@ -273,9 +273,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
       if (format === 'csv') {
         blobData = await api.transactions.exportCsv(params);
         filename = `transactions-report-${today}.csv`;
-      } else {
+      } else if (format === 'pdf') {
         blobData = await api.transactions.exportPdf(params);
         filename = `ledger-summary-${today}.pdf`;
+      } else {
+        blobData = await api.transactions.exportVouchers({
+          startDate: filterStartDate || undefined,
+          endDate: filterEndDate || undefined,
+        });
+        filename = `vouchers-${filterStartDate || 'all'}-to-${filterEndDate || 'all'}.zip`;
       }
 
       const url = URL.createObjectURL(new Blob([blobData]));
@@ -783,6 +789,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                       title="Download summary statement PDF"
                     >
                       📄 Export PDF Summary
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExport('bulk_vouchers')}
+                      className="bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-350 hover:text-white font-bold text-xs py-2 px-3 rounded-lg flex items-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
+                      title="Download matching transaction vouchers as ZIP archive"
+                    >
+                      📦 Download Vouchers (ZIP)
                     </button>
                   </div>
                 </div>

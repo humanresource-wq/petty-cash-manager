@@ -425,6 +425,25 @@ public class TransactionService {
                 .toList();
     }
 
+    public byte[] exportVouchersZip(LocalDate startDate, LocalDate endDate) throws IOException {
+        List<PettyCashTransaction> list = getFilteredTransactions(startDate, endDate, null, null, null, null);
+        if (list.isEmpty()) {
+            throw new IllegalArgumentException("No transactions found for the selected date range");
+        }
+
+        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+        try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(baos)) {
+            for (PettyCashTransaction tx : list) {
+                byte[] pdfBytes = voucherService.generateTransactionVoucher(tx);
+                java.util.zip.ZipEntry entry = new java.util.zip.ZipEntry("voucher-" + tx.getTransactionNo() + ".pdf");
+                zos.putNextEntry(entry);
+                zos.write(pdfBytes);
+                zos.closeEntry();
+            }
+        }
+        return baos.toByteArray();
+    }
+
     public Page<TransactionResponse> getPaginatedTransactions(
             int page,
             int size,

@@ -112,6 +112,10 @@ export const api = {
       receiptStatus?: string;
       search?: string;
     }) => client.get('/transactions/export/pdf', { params, responseType: 'blob' }).then((r) => r.data),
+    exportVouchers: (params?: {
+      startDate?: string;
+      endDate?: string;
+    }) => client.get('/transactions/export/vouchers', { params, responseType: 'blob' }).then((r) => r.data),
   },
 
   categories: {

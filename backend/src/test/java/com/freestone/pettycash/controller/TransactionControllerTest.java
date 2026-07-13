@@ -133,4 +133,51 @@ class TransactionControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Insufficient balance in Cash Box. Requested: Rs. 1000.00, Available: Rs. 500.00"));
     }
+
+    @Test
+    @DisplayName("GET /api/v1/transactions/export/vouchers should return 200 OK and ZIP archive")
+    @WithUserDetails("google-sub-harsh")
+    void exportVouchersReturnsZip() throws Exception {
+        // Setup cashbox
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(1000.00));
+        cashBoxRepository.save(box);
+
+        // Record a transaction
+        TransactionRequest createReq = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(100.00),
+                "Bulk test transaction",
+                LocalDate.now(),
+                "Vendor C",
+                testCategory.getId(),
+                null,
+                "VCH-CONT-BULK",
+                "Freestone Infotech LLP"
+        );
+        transactionService.recordTransaction(createReq, "google-sub-harsh", null, null, null);
+
+        mockMvc.perform(get("/api/v1/transactions/export/vouchers")
+                        .param("startDate", LocalDate.now().toString())
+                        .param("endDate", LocalDate.now().toString()))
+                .andExpect(status().isOk())
+                .andExpect(result -> {
+                    String contentType = result.getResponse().getContentType();
+                    org.assertj.core.api.Assertions.assertThat(contentType).isEqualTo("application/zip");
+                    byte[] content = result.getResponse().getContentAsByteArray();
+                    org.assertj.core.api.Assertions.assertThat(content).isNotEmpty();
+                });
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/transactions/export/vouchers with no matching records returns 400 Bad Request")
+    @WithUserDetails("google-sub-harsh")
+    void exportVouchersWithNoMatchReturns400() throws Exception {
+        LocalDate farFuture = LocalDate.now().plusYears(10);
+        mockMvc.perform(get("/api/v1/transactions/export/vouchers")
+                        .param("startDate", farFuture.toString())
+                        .param("endDate", farFuture.toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("No transactions found for the selected date range"));
+    }
 }

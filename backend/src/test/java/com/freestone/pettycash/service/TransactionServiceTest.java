@@ -585,4 +585,70 @@ class TransactionServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Transaction cannot be edited after");
     }
+
+    @Test
+    @DisplayName("exportVouchersZip with matching transactions generates a valid zip archive")
+    @Transactional
+    void exportVouchersZipGeneratesValidZip() throws Exception {
+        // Setup cashbox
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(5000.00));
+        cashBoxRepository.save(box);
+
+        LocalDate testDate = LocalDate.now().plusYears(1);
+        TransactionRequest createReq1 = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(100.00),
+                "Expense 1",
+                testDate,
+                "Vendor A",
+                testCategory.getId(),
+                null,
+                "Voc-bulk-001",
+                "Freestone Infotech LLP"
+        );
+        TransactionResponse tx1 = transactionService.recordTransaction(createReq1, "admin@example.com", null, null, null);
+
+        TransactionRequest createReq2 = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(200.00),
+                "Expense 2",
+                testDate,
+                "Vendor B",
+                testCategory.getId(),
+                null,
+                "Voc-bulk-002",
+                "Freestone Infotech LLP"
+        );
+        TransactionResponse tx2 = transactionService.recordTransaction(createReq2, "admin@example.com", null, null, null);
+
+        // Generate the ZIP
+        byte[] zipBytes = transactionService.exportVouchersZip(testDate, testDate);
+        assertThat(zipBytes).isNotEmpty();
+
+        // Parse and assert inside the ZIP file structure
+        java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zipBytes));
+        java.util.zip.ZipEntry entry;
+        java.util.List<String> fileNames = new java.util.ArrayList<>();
+        while ((entry = zis.getNextEntry()) != null) {
+            fileNames.add(entry.getName());
+            zis.closeEntry();
+        }
+
+        assertThat(fileNames).hasSize(2);
+        assertThat(fileNames).containsExactlyInAnyOrder(
+                "voucher-" + tx1.transactionNo() + ".pdf",
+                "voucher-" + tx2.transactionNo() + ".pdf"
+        );
+    }
+
+    @Test
+    @DisplayName("exportVouchersZip with no matching transactions throws IllegalArgumentException")
+    @Transactional
+    void exportVouchersZipWithNoMatchThrows() {
+        LocalDate farFuture = LocalDate.now().plusYears(10);
+        assertThatThrownBy(() -> transactionService.exportVouchersZip(farFuture, farFuture))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No transactions found for the selected date range");
+    }
 }
