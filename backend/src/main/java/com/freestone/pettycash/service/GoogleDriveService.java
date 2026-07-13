@@ -36,6 +36,12 @@ public class GoogleDriveService {
     @Value("${app.google.drive.client-email:}")
     private String clientEmail;
 
+    @Value("${app.google.drive.client-id:}")
+    private String clientId;
+
+    @Value("${app.google.drive.private-key-id:}")
+    private String privateKeyId;
+
     @Value("${app.google.drive.parent-folder-id:}")
     private String parentFolderId;
 
@@ -54,12 +60,16 @@ public class GoogleDriveService {
             String credentialsJson = String.format(
                     "{\n" +
                     "  \"type\": \"service_account\",\n" +
+                    "  \"private_key_id\": \"%s\",\n" +
                     "  \"private_key\": \"%s\",\n" +
                     "  \"client_email\": \"%s\",\n" +
+                    "  \"client_id\": \"%s\",\n" +
                     "  \"token_uri\": \"https://oauth2.googleapis.com/token\"\n" +
                     "}",
+                    (privateKeyId != null && !privateKeyId.isBlank()) ? privateKeyId : "dummy_private_key_id",
                     cleanKey.replace("\n", "\\n"), // Escape newlines for JSON payload
-                    clientEmail
+                    clientEmail,
+                    (clientId != null && !clientId.isBlank()) ? clientId : "100000000000000000000"
             );
 
             InputStream credentialsStream = new ByteArrayInputStream(credentialsJson.getBytes(StandardCharsets.UTF_8));
