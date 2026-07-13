@@ -325,23 +325,23 @@ public class TransactionService {
         return new CashBoxResponse(box.getBalance(), cashBoxRepository.save(box).getLowThreshold());
     }
 
-    public DashboardStatsResponse getDashboardStats() {
+    public DashboardStatsResponse getDashboardStats(LocalDate startDate, LocalDate endDate) {
         CashBox box = cashBoxRepository.findById(1L)
                 .orElseThrow(() -> new IllegalStateException("Cash Box system is not initialized"));
 
         LocalDate today = LocalDate.now();
-        LocalDate startOfMonth = today.withDayOfMonth(1);
-        LocalDate endOfMonth = today.plusMonths(1).withDayOfMonth(1).minusDays(1);
+        LocalDate rangeStart = (startDate != null) ? startDate : LocalDate.of(1970, 1, 1);
+        LocalDate rangeEnd = (endDate != null) ? endDate : LocalDate.now().plusYears(100);
 
         BigDecimal spentThisMonth = transactionRepository.sumAmountByTypeAndDateRange(
-                TransactionType.EXPENSE, startOfMonth, endOfMonth);
+                TransactionType.EXPENSE, rangeStart, rangeEnd);
         BigDecimal addedThisMonth = transactionRepository.sumAmountByTypeAndDateRange(
-                TransactionType.TOPUP, startOfMonth, endOfMonth);
+                TransactionType.TOPUP, rangeStart, rangeEnd);
 
         List<PettyCashTransaction> allTransactions = transactionRepository.findAll();
 
         long currentMonthSpentCount = allTransactions.stream()
-                .filter(t -> t.getType() == TransactionType.EXPENSE && !t.getDate().isBefore(startOfMonth) && !t.getDate().isAfter(endOfMonth))
+                .filter(t -> t.getType() == TransactionType.EXPENSE && !t.getDate().isBefore(rangeStart) && !t.getDate().isAfter(rangeEnd))
                 .count();
 
         long pendingReceiptsCount = allTransactions.stream()
@@ -353,26 +353,51 @@ public class TransactionService {
                 .map(PettyCashTransaction::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Trend data: last 6 months (including current month)
+        // Trend data: dynamically calculate based on filters, or last 6 months by default
         java.util.List<DashboardStatsResponse.MonthlyFlow> monthlyFlows = new java.util.ArrayList<>();
-        for (int i = 5; i >= 0; i--) {
-            LocalDate targetMonth = today.minusMonths(i);
-            LocalDate start = targetMonth.withDayOfMonth(1);
-            LocalDate end = targetMonth.plusMonths(1).withDayOfMonth(1).minusDays(1);
+        LocalDate trendStart = (startDate != null) ? startDate.withDayOfMonth(1) : today.minusMonths(5).withDayOfMonth(1);
+        LocalDate trendEnd = (endDate != null) ? endDate : today;
+
+        LocalDate cursor = trendStart;
+        int count = 0;
+        while (!cursor.isAfter(trendEnd) && count < 12) {
+            LocalDate start = cursor.withDayOfMonth(1);
+            LocalDate end = cursor.plusMonths(1).withDayOfMonth(1).minusDays(1);
 
             BigDecimal monthlySpent = transactionRepository.sumAmountByTypeAndDateRange(
                     TransactionType.EXPENSE, start, end);
             BigDecimal monthlyAdded = transactionRepository.sumAmountByTypeAndDateRange(
                     TransactionType.TOPUP, start, end);
 
-            String label = targetMonth.getMonth().getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH);
+            String label = cursor.getMonth().getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH)
+                    + " " + (cursor.getYear() % 100);
             monthlyFlows.add(new DashboardStatsResponse.MonthlyFlow(label, monthlySpent, monthlyAdded));
+
+            cursor = cursor.plusMonths(1);
+            count++;
         }
 
-        // All-time Category Spends
+        if (monthlyFlows.isEmpty()) {
+            for (int i = 5; i >= 0; i--) {
+                LocalDate targetMonth = today.minusMonths(i);
+                LocalDate start = targetMonth.withDayOfMonth(1);
+                LocalDate end = targetMonth.plusMonths(1).withDayOfMonth(1).minusDays(1);
+
+                BigDecimal monthlySpent = transactionRepository.sumAmountByTypeAndDateRange(
+                        TransactionType.EXPENSE, start, end);
+                BigDecimal monthlyAdded = transactionRepository.sumAmountByTypeAndDateRange(
+                        TransactionType.TOPUP, start, end);
+
+                String label = targetMonth.getMonth().getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH);
+                monthlyFlows.add(new DashboardStatsResponse.MonthlyFlow(label, monthlySpent, monthlyAdded));
+            }
+        }
+
+        // Category Spends in range
         java.util.Map<String, BigDecimal> catSpendsMap = new java.util.HashMap<>();
         allTransactions.stream()
                 .filter(t -> t.getType() == TransactionType.EXPENSE && t.getCategory() != null)
+                .filter(t -> !t.getDate().isBefore(rangeStart) && !t.getDate().isAfter(rangeEnd))
                 .forEach(t -> {
                     String catName = t.getCategory().getName();
                     catSpendsMap.put(catName, catSpendsMap.getOrDefault(catName, BigDecimal.ZERO).add(t.getAmount()));

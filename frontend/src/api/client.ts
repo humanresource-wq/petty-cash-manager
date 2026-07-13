@@ -95,7 +95,8 @@ export const api = {
       client.put<CashBoxResponse>('/transactions/cashbox/threshold', null, {
         params: { threshold },
       }).then((r) => r.data),
-    getDashboardStats: () => client.get<DashboardStatsResponse>('/transactions/dashboard-stats').then((r) => r.data),
+    getDashboardStats: (params?: { startDate?: string; endDate?: string }) =>
+      client.get<DashboardStatsResponse>('/transactions/dashboard-stats', { params }).then((r) => r.data),
     exportCsv: (params?: {
       startDate?: string;
       endDate?: string;

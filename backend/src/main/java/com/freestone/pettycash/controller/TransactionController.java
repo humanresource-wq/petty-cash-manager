@@ -53,8 +53,11 @@ public class TransactionController {
     }
 
     @GetMapping("/dashboard-stats")
-    public ResponseEntity<DashboardStatsResponse> getDashboardStats() {
-        return ResponseEntity.ok(transactionService.getDashboardStats());
+    public ResponseEntity<DashboardStatsResponse> getDashboardStats(
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate
+    ) {
+        return ResponseEntity.ok(transactionService.getDashboardStats(startDate, endDate));
     }
 
     @GetMapping("/export/csv")

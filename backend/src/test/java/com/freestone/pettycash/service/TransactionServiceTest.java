@@ -3,6 +3,7 @@ package com.freestone.pettycash.service;
 import com.freestone.pettycash.dto.TransactionRequest;
 import com.freestone.pettycash.dto.TransactionResponse;
 import com.freestone.pettycash.dto.TransactionUpdateRequest;
+import com.freestone.pettycash.dto.DashboardStatsResponse;
 import com.freestone.pettycash.exception.InsufficientBalanceException;
 import com.freestone.pettycash.model.*;
 import com.freestone.pettycash.repository.CashBoxRepository;
@@ -650,5 +651,55 @@ class TransactionServiceTest {
         assertThatThrownBy(() -> transactionService.exportVouchersZip(farFuture, farFuture))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("No transactions found for the selected date range");
+    }
+
+    @Test
+    @DisplayName("getDashboardStats with custom date range returns filtered stats")
+    @Transactional
+    void getDashboardStatsWithCustomRangeFiltersCorrectly() throws Exception {
+        // Setup cashbox
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(10000.00));
+        cashBoxRepository.save(box);
+
+        // Record a transaction today
+        LocalDate today = LocalDate.now().plusYears(2);
+        TransactionRequest createReq1 = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(100.00),
+                "Expense Today",
+                today,
+                "Vendor A",
+                testCategory.getId(),
+                null,
+                "Voc-stats-1",
+                "Freestone Infotech LLP"
+        );
+        transactionService.recordTransaction(createReq1, "admin@example.com", null, null, null);
+
+        // Record a transaction 5 months ago
+        LocalDate pastDate = LocalDate.now().minusMonths(5);
+        TransactionRequest createReq2 = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(500.00),
+                "Expense Past",
+                pastDate,
+                "Vendor B",
+                testCategory.getId(),
+                null,
+                "Voc-stats-2",
+                "Freestone Infotech LLP"
+        );
+        transactionService.recordTransaction(createReq2, "admin@example.com", null, null, null);
+
+        // Get stats for today only
+        DashboardStatsResponse statsToday = transactionService.getDashboardStats(today, today);
+        assertThat(statsToday.currentMonthSpent()).isEqualByComparingTo(BigDecimal.valueOf(100.00));
+        assertThat(statsToday.currentMonthSpentCount()).isEqualTo(1L);
+
+        // Get stats for the past date only
+        DashboardStatsResponse statsPast = transactionService.getDashboardStats(pastDate, pastDate);
+        assertThat(statsPast.currentMonthSpent()).isEqualByComparingTo(BigDecimal.valueOf(500.00));
+        assertThat(statsPast.currentMonthSpentCount()).isEqualTo(1L);
     }
 }
