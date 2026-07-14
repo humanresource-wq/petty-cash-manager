@@ -96,6 +96,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
   const [searchInput, setSearchInput] = useState<string>('');
   const [filterType, setFilterType] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<string>('');
+  const [filterCompany, setFilterCompany] = useState<string>('');
   const [filterStartDate, setFilterStartDate] = useState<string>('');
   const [filterEndDate, setFilterEndDate] = useState<string>('');
   const [datePeriod, setDatePeriod] = useState<string>('all');
@@ -107,7 +108,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
   // Reset pagination to page 1 whenever filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterType, filterCategory, filterStartDate, filterEndDate]);
+  }, [searchQuery, filterType, filterCategory, filterStartDate, filterEndDate, filterCompany]);
 
   const calculateDatesForPeriod = (period: string) => {
     const today = new Date();
@@ -321,8 +322,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
     }
   };
 
-  const handleExport = async (format: 'csv' | 'pdf' | 'bulk_vouchers') => {
-    showToast(`📥 Preparing statement export as ${format === 'bulk_vouchers' ? 'ZIP' : format.toUpperCase()}...`);
+  const handleExport = async (format: 'csv' | 'pdf' | 'bulk_vouchers' | 'custom_csv' | 'custom_pdf') => {
+    showToast(`📥 Preparing statement export as ${format === 'bulk_vouchers' ? 'ZIP' : format.toUpperCase().replace('CUSTOM_', 'Custom ')}...`);
     try {
       const params = {
         startDate: filterStartDate || undefined,
@@ -330,6 +331,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
         type: filterType || undefined,
         categoryName: filterCategory || undefined,
         search: searchQuery || undefined,
+      };
+
+      const customParams = {
+        startDate: filterStartDate || undefined,
+        endDate: filterEndDate || undefined,
+        company: filterCompany || undefined,
+        categoryName: filterCategory || undefined,
       };
 
       let blobData;
@@ -342,6 +350,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
       } else if (format === 'pdf') {
         blobData = await api.transactions.exportPdf(params);
         filename = `ledger-summary-${today}.pdf`;
+      } else if (format === 'custom_csv') {
+        blobData = await api.reports.exportCsv(customParams);
+        filename = `grouped-report-${today}.csv`;
+      } else if (format === 'custom_pdf') {
+        blobData = await api.reports.exportPdf(customParams);
+        filename = `grouped-statement-${today}.pdf`;
       } else {
         blobData = await api.transactions.exportVouchers({
           startDate: filterStartDate || undefined,
@@ -411,6 +425,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
     searchQuery ||
     filterType ||
     filterCategory ||
+    filterCompany ||
     filterStartDate ||
     filterEndDate
   );
@@ -420,6 +435,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
     setSearchQuery('');
     setFilterType('');
     setFilterCategory('');
+    setFilterCompany('');
     setFilterStartDate('');
     setFilterEndDate('');
     setDatePeriod('all');
@@ -427,11 +443,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
 
   // --- Filtered Transactions list ---
   const getFilteredTransactions = () => {
-    return transactions;
+    if (!filterCompany) return transactions;
+    return transactions.filter(t => t.company === filterCompany);
   };
 
   const getPaginatedTransactions = () => {
-    return transactions;
+    if (!filterCompany) return transactions;
+    return transactions.filter(t => t.company === filterCompany);
   };
 
   return (
@@ -859,6 +877,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                   </select>
 
                   <select
+                    value={filterCompany}
+                    onChange={(e) => setFilterCompany(e.target.value)}
+                    className="bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    <option value="">All Companies</option>
+                    <option value="Freestone Infotech LLP">Freestone Infotech LLP</option>
+                    <option value="Freestone Infotech PVT LTD">Freestone Infotech PVT LTD</option>
+                  </select>
+
+                  <select
                     value={datePeriod}
                     onChange={(e) => handleDatePeriodChange(e.target.value)}
                     className="bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
@@ -908,7 +936,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                   )}
 
                   {/* Export Buttons */}
-                  <div className="flex gap-2 shrink-0 ml-auto">
+                  <div className="flex gap-2 shrink-0 ml-auto flex-wrap justify-end">
                     <button
                       type="button"
                       onClick={() => handleExport('csv')}
@@ -924,6 +952,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                       title="Download summary statement PDF"
                     >
                       📄 Export PDF Summary
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExport('custom_csv')}
+                      className="bg-slate-950 border border-indigo-950 hover:border-indigo-800/80 text-indigo-400 hover:text-indigo-300 font-bold text-xs py-2 px-3 rounded-lg flex items-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
+                      title="Download custom company/monthly grouped CSV report"
+                    >
+                      📈 Grouped CSV Report
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExport('custom_pdf')}
+                      className="bg-slate-950 border border-indigo-950 hover:border-indigo-800/80 text-indigo-400 hover:text-indigo-300 font-bold text-xs py-2 px-3 rounded-lg flex items-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
+                      title="Download custom company/monthly grouped PDF statement"
+                    >
+                      📋 Grouped PDF Report
                     </button>
                     <button
                       type="button"
