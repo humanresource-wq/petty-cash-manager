@@ -21,11 +21,19 @@ SUBFOLDER_NAME = "Petty_Cash_DB_Backups"
 
 
 def _get_service():
-    private_key = os.environ["GOOGLE_PRIVATE_KEY"].replace("\\n", "\n")
+    private_key = os.environ.get("GOOGLE_DRIVE_PRIVATE_KEY") or os.environ.get("GOOGLE_PRIVATE_KEY")
+    if not private_key:
+        raise KeyError("Neither GOOGLE_DRIVE_PRIVATE_KEY nor GOOGLE_PRIVATE_KEY is set in environment")
+    private_key = private_key.replace("\\n", "\n")
+
+    client_email = os.environ.get("GOOGLE_DRIVE_CLIENT_EMAIL") or os.environ.get("GOOGLE_CLIENT_EMAIL")
+    if not client_email:
+        raise KeyError("Neither GOOGLE_DRIVE_CLIENT_EMAIL nor GOOGLE_CLIENT_EMAIL is set in environment")
+
     info = {
         "type": "service_account",
         "private_key": private_key,
-        "client_email": os.environ["GOOGLE_CLIENT_EMAIL"],
+        "client_email": client_email,
         "token_uri": "https://oauth2.googleapis.com/token",
     }
     creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
