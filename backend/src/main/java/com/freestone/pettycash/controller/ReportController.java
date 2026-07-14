@@ -36,10 +36,12 @@ public class ReportController {
     ) {
         String searchParam = (search == null || search.isBlank()) ? null : "%" + search.trim().toLowerCase() + "%";
         List<PettyCashTransaction> list = transactionRepository.findFilteredList(
-                startDate, endDate, 
-                company != null && !company.isBlank() ? company.trim() : null,
-                categoryName != null && !categoryName.isBlank() ? categoryName.trim() : null,
-                type, searchParam);
+                startDate, startDate != null,
+                endDate, endDate != null,
+                company != null && !company.isBlank() ? company.trim() : null, company != null && !company.isBlank(),
+                categoryName != null && !categoryName.isBlank() ? categoryName.trim() : null, categoryName != null && !categoryName.isBlank(),
+                type, type != null,
+                searchParam, searchParam != null);
 
         byte[] pdfBytes = customReportService.generatePdfCustomReport(
                 list, startDate, endDate, company, categoryName, type, search);
@@ -63,10 +65,12 @@ public class ReportController {
     ) {
         String searchParam = (search == null || search.isBlank()) ? null : "%" + search.trim().toLowerCase() + "%";
         List<PettyCashTransaction> list = transactionRepository.findFilteredList(
-                startDate, endDate, 
-                company != null && !company.isBlank() ? company.trim() : null,
-                categoryName != null && !categoryName.isBlank() ? categoryName.trim() : null,
-                type, searchParam);
+                startDate, startDate != null,
+                endDate, endDate != null,
+                company != null && !company.isBlank() ? company.trim() : null, company != null && !company.isBlank(),
+                categoryName != null && !categoryName.isBlank() ? categoryName.trim() : null, categoryName != null && !categoryName.isBlank(),
+                type, type != null,
+                searchParam, searchParam != null);
 
         byte[] csvBytes = customReportService.generateCsvCustomReport(
                 list, startDate, endDate, company, categoryName, type, search);

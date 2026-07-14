@@ -80,22 +80,28 @@ public interface TransactionRepository extends JpaRepository<PettyCashTransactio
     @Query("SELECT t FROM PettyCashTransaction t " +
            "LEFT JOIN FETCH t.category c " +
            "LEFT JOIN FETCH t.subcategory " +
-           "WHERE (:startDate IS NULL OR t.date >= :startDate) " +
-           "AND (:endDate IS NULL OR t.date <= :endDate) " +
-           "AND (:company IS NULL OR t.company = :company) " +
-           "AND (:categoryName IS NULL OR LOWER(c.name) = LOWER(:categoryName)) " +
-           "AND (:type IS NULL OR t.type = :type) " +
-           "AND (:search IS NULL OR LOWER(t.description) LIKE :search " +
+           "WHERE (:hasStartDate = false OR t.date >= :startDate) " +
+           "AND (:hasEndDate = false OR t.date <= :endDate) " +
+           "AND (:hasCompany = false OR t.company = :company) " +
+           "AND (:hasCategoryName = false OR LOWER(c.name) = LOWER(:categoryName)) " +
+           "AND (:hasType = false OR t.type = :type) " +
+           "AND (:hasSearch = false OR LOWER(t.description) LIKE :search " +
            "OR LOWER(t.payee) LIKE :search " +
            "OR LOWER(t.transactionNo) LIKE :search " +
            "OR LOWER(t.payer) LIKE :search) " +
            "ORDER BY t.date DESC, t.id DESC")
     List<PettyCashTransaction> findFilteredList(
             @Param("startDate") LocalDate startDate,
+            @Param("hasStartDate") boolean hasStartDate,
             @Param("endDate") LocalDate endDate,
+            @Param("hasEndDate") boolean hasEndDate,
             @Param("company") String company,
+            @Param("hasCompany") boolean hasCompany,
             @Param("categoryName") String categoryName,
+            @Param("hasCategoryName") boolean hasCategoryName,
             @Param("type") TransactionType type,
-            @Param("search") String search
+            @Param("hasType") boolean hasType,
+            @Param("search") String search,
+            @Param("hasSearch") boolean hasSearch
     );
 }
