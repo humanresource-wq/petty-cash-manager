@@ -9,6 +9,8 @@ interface AdminPanelProps {
   lowThreshold: number;
   onRefresh: () => void;
   toast: (msg: string) => void;
+  activeTab: 'categories' | 'templates' | 'users' | 'threshold';
+  setActiveTab: (tab: 'categories' | 'templates' | 'users' | 'threshold') => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -18,8 +20,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   lowThreshold,
   onRefresh,
   toast,
+  activeTab,
+  setActiveTab,
 }) => {
-  const [activeTab, setActiveTab] = useState<'categories' | 'templates' | 'users' | 'threshold'>('categories');
   const [loading, setLoading] = useState<boolean>(false);
 
   // Categories form states
