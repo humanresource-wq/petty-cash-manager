@@ -884,8 +884,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                     className="bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
                   >
                     <option value="">All Companies</option>
-                    <option value="Freestone Infotech Pvt Ltd">Freestone Infotech Pvt Ltd</option>
-                    <option value="Freestone Technologies LLP">Freestone Technologies LLP</option>
+                    {(config.companies || []).map((company) => (
+                      <option key={company} value={company}>
+                        {company}
+                      </option>
+                    ))}
                   </select>
 
                   <select
@@ -1011,7 +1014,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                             <td className="p-3 text-slate-400 font-mono">{t.voucherNumber}</td>
                             <td className="p-3">
                               <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                t.company === 'Freestone Technologies LLP' 
+                                (config.companies || []).indexOf(t.company) === 0
                                   ? 'bg-blue-950/60 text-blue-400 border border-blue-900/40' 
                                   : 'bg-purple-950/60 text-purple-400 border border-purple-900/40'
                               }`}>
