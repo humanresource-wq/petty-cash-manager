@@ -53,8 +53,11 @@ public class TransactionController {
     }
 
     @GetMapping("/dashboard-stats")
-    public ResponseEntity<DashboardStatsResponse> getDashboardStats() {
-        return ResponseEntity.ok(transactionService.getDashboardStats());
+    public ResponseEntity<DashboardStatsResponse> getDashboardStats(
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate
+    ) {
+        return ResponseEntity.ok(transactionService.getDashboardStats(startDate, endDate));
     }
 
     @GetMapping("/export/csv")
@@ -95,6 +98,23 @@ public class TransactionController {
                 .contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .body(pdfBytes);
+    }
+
+    @GetMapping("/export/vouchers")
+    public ResponseEntity<byte[]> exportVouchers(
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate
+    ) throws IOException {
+        byte[] zipBytes = transactionService.exportVouchersZip(startDate, endDate);
+
+        String filename = "vouchers-" +
+                (startDate != null ? startDate.toString() : "all") + "-to-" +
+                (endDate != null ? endDate.toString() : "all") + ".zip";
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .body(zipBytes);
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

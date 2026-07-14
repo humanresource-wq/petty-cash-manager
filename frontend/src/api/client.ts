@@ -95,7 +95,8 @@ export const api = {
       client.put<CashBoxResponse>('/transactions/cashbox/threshold', null, {
         params: { threshold },
       }).then((r) => r.data),
-    getDashboardStats: () => client.get<DashboardStatsResponse>('/transactions/dashboard-stats').then((r) => r.data),
+    getDashboardStats: (params?: { startDate?: string; endDate?: string }) =>
+      client.get<DashboardStatsResponse>('/transactions/dashboard-stats', { params }).then((r) => r.data),
     exportCsv: (params?: {
       startDate?: string;
       endDate?: string;
@@ -112,6 +113,10 @@ export const api = {
       receiptStatus?: string;
       search?: string;
     }) => client.get('/transactions/export/pdf', { params, responseType: 'blob' }).then((r) => r.data),
+    exportVouchers: (params?: {
+      startDate?: string;
+      endDate?: string;
+    }) => client.get('/transactions/export/vouchers', { params, responseType: 'blob' }).then((r) => r.data),
   },
 
   categories: {

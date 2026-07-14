@@ -3,6 +3,7 @@ package com.freestone.pettycash.service;
 import com.freestone.pettycash.dto.TransactionRequest;
 import com.freestone.pettycash.dto.TransactionResponse;
 import com.freestone.pettycash.dto.TransactionUpdateRequest;
+import com.freestone.pettycash.dto.DashboardStatsResponse;
 import com.freestone.pettycash.exception.InsufficientBalanceException;
 import com.freestone.pettycash.model.*;
 import com.freestone.pettycash.repository.CashBoxRepository;
@@ -518,7 +519,7 @@ class TransactionServiceTest {
         TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
         
         // Use JDBC to update the database record to 15 days ago
-        LocalDateTime fifteenDaysAgo = LocalDateTime.now().minusDays(15);
+        java.time.Instant fifteenDaysAgo = java.time.Instant.now().minus(java.time.Duration.ofDays(15));
         jdbcTemplate.update("UPDATE transactions SET created_at = ? WHERE id = ?", fifteenDaysAgo, created.id());
 
         // Clear persistence context to force reload from DB
@@ -563,7 +564,7 @@ class TransactionServiceTest {
         TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
         
         // Use JDBC to update the database record to 40 days ago (more than 1 month + 3 days)
-        LocalDateTime fortyDaysAgo = LocalDateTime.now().minusDays(40);
+        java.time.Instant fortyDaysAgo = java.time.Instant.now().minus(java.time.Duration.ofDays(40));
         jdbcTemplate.update("UPDATE transactions SET created_at = ? WHERE id = ?", fortyDaysAgo, created.id());
 
         // Clear persistence context to force reload from DB
@@ -584,5 +585,121 @@ class TransactionServiceTest {
         assertThatThrownBy(() -> transactionService.updateTransaction(created.id(), updateReq))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Transaction cannot be edited after");
+    }
+
+    @Test
+    @DisplayName("exportVouchersZip with matching transactions generates a valid zip archive")
+    @Transactional
+    void exportVouchersZipGeneratesValidZip() throws Exception {
+        // Setup cashbox
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(5000.00));
+        cashBoxRepository.save(box);
+
+        LocalDate testDate = LocalDate.now().plusYears(1);
+        TransactionRequest createReq1 = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(100.00),
+                "Expense 1",
+                testDate,
+                "Vendor A",
+                testCategory.getId(),
+                null,
+                "Voc-bulk-001",
+                "Freestone Infotech LLP"
+        );
+        TransactionResponse tx1 = transactionService.recordTransaction(createReq1, "admin@example.com", null, null, null);
+
+        TransactionRequest createReq2 = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(200.00),
+                "Expense 2",
+                testDate,
+                "Vendor B",
+                testCategory.getId(),
+                null,
+                "Voc-bulk-002",
+                "Freestone Infotech LLP"
+        );
+        TransactionResponse tx2 = transactionService.recordTransaction(createReq2, "admin@example.com", null, null, null);
+
+        // Generate the ZIP
+        byte[] zipBytes = transactionService.exportVouchersZip(testDate, testDate);
+        assertThat(zipBytes).isNotEmpty();
+
+        // Parse and assert inside the ZIP file structure
+        java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zipBytes));
+        java.util.zip.ZipEntry entry;
+        java.util.List<String> fileNames = new java.util.ArrayList<>();
+        while ((entry = zis.getNextEntry()) != null) {
+            fileNames.add(entry.getName());
+            zis.closeEntry();
+        }
+
+        assertThat(fileNames).hasSize(2);
+        assertThat(fileNames).containsExactlyInAnyOrder(
+                "voucher-" + tx1.transactionNo() + ".pdf",
+                "voucher-" + tx2.transactionNo() + ".pdf"
+        );
+    }
+
+    @Test
+    @DisplayName("exportVouchersZip with no matching transactions throws IllegalArgumentException")
+    @Transactional
+    void exportVouchersZipWithNoMatchThrows() {
+        LocalDate farFuture = LocalDate.now().plusYears(10);
+        assertThatThrownBy(() -> transactionService.exportVouchersZip(farFuture, farFuture))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No transactions found for the selected date range");
+    }
+
+    @Test
+    @DisplayName("getDashboardStats with custom date range returns filtered stats")
+    @Transactional
+    void getDashboardStatsWithCustomRangeFiltersCorrectly() throws Exception {
+        // Setup cashbox
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(10000.00));
+        cashBoxRepository.save(box);
+
+        // Record a transaction today
+        LocalDate today = LocalDate.now().plusYears(2);
+        TransactionRequest createReq1 = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(100.00),
+                "Expense Today",
+                today,
+                "Vendor A",
+                testCategory.getId(),
+                null,
+                "Voc-stats-1",
+                "Freestone Infotech LLP"
+        );
+        transactionService.recordTransaction(createReq1, "admin@example.com", null, null, null);
+
+        // Record a transaction 5 months ago
+        LocalDate pastDate = LocalDate.now().minusMonths(5);
+        TransactionRequest createReq2 = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(500.00),
+                "Expense Past",
+                pastDate,
+                "Vendor B",
+                testCategory.getId(),
+                null,
+                "Voc-stats-2",
+                "Freestone Infotech LLP"
+        );
+        transactionService.recordTransaction(createReq2, "admin@example.com", null, null, null);
+
+        // Get stats for today only
+        DashboardStatsResponse statsToday = transactionService.getDashboardStats(today, today);
+        assertThat(statsToday.currentMonthSpent()).isEqualByComparingTo(BigDecimal.valueOf(100.00));
+        assertThat(statsToday.currentMonthSpentCount()).isEqualTo(1L);
+
+        // Get stats for the past date only
+        DashboardStatsResponse statsPast = transactionService.getDashboardStats(pastDate, pastDate);
+        assertThat(statsPast.currentMonthSpent()).isEqualByComparingTo(BigDecimal.valueOf(500.00));
+        assertThat(statsPast.currentMonthSpentCount()).isEqualTo(1L);
     }
 }

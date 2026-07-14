@@ -89,6 +89,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
   const [cashbox, setCashbox] = useState<CashBoxResponse>({ balance: 0, lowThreshold: 2000 });
   const [dashboardStats, setDashboardStats] = useState<DashboardStatsResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [adminActiveTab, setAdminActiveTab] = useState<'categories' | 'templates' | 'users' | 'threshold'>('categories');
 
   // Filters for Transactions Tab
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -97,6 +98,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
   const [filterCategory, setFilterCategory] = useState<string>('');
   const [filterStartDate, setFilterStartDate] = useState<string>('');
   const [filterEndDate, setFilterEndDate] = useState<string>('');
+  const [datePeriod, setDatePeriod] = useState<string>('all');
 
   // Pagination for Transactions Ledger
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -107,7 +109,55 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
     setCurrentPage(1);
   }, [searchQuery, filterType, filterCategory, filterStartDate, filterEndDate]);
 
+  const calculateDatesForPeriod = (period: string) => {
+    const today = new Date();
+    let start = '';
+    let end = '';
 
+    const formatDate = (d: Date) => d.toISOString().split('T')[0];
+
+    if (period === 'thisMonth') {
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      start = formatDate(firstDay);
+      end = formatDate(today);
+    } else if (period === 'lastMonth') {
+      const firstDayLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      start = formatDate(firstDayLastMonth);
+      end = formatDate(lastDayLastMonth);
+    } else if (period === 'last3Months') {
+      const firstDay3MonthsAgo = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+      start = formatDate(firstDay3MonthsAgo);
+      end = formatDate(today);
+    } else if (period === 'last6Months') {
+      const firstDay6MonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+      start = formatDate(firstDay6MonthsAgo);
+      end = formatDate(today);
+    } else if (period === 'all') {
+      start = '';
+      end = '';
+    }
+    return { start, end };
+  };
+
+  const handleDatePeriodChange = (newPeriod: string) => {
+    setDatePeriod(newPeriod);
+    if (newPeriod !== 'custom') {
+      const { start, end } = calculateDatesForPeriod(newPeriod);
+      setFilterStartDate(start);
+      setFilterEndDate(end);
+    }
+  };
+
+  const handleStartDateChange = (val: string) => {
+    setFilterStartDate(val);
+    setDatePeriod('custom');
+  };
+
+  const handleEndDateChange = (val: string) => {
+    setFilterEndDate(val);
+    setDatePeriod('custom');
+  };
 
   // Modals
   const [isTxModalOpen, setIsTxModalOpen] = useState<boolean>(false);
@@ -138,19 +188,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
     }
   };
 
+  const fetchStats = async () => {
+    try {
+      const statsData = await api.transactions.getDashboardStats({
+        startDate: filterStartDate || undefined,
+        endDate: filterEndDate || undefined,
+      });
+      setDashboardStats(statsData);
+      setCashbox({ balance: statsData.balance, lowThreshold: statsData.lowThreshold });
+    } catch (err) {
+      showToast('❌ Failed to fetch dashboard stats: ' + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      const [catData, tempData, statsData] = await Promise.all([
+      const [catData, tempData] = await Promise.all([
         api.categories.list(),
         api.templates.list(),
-        api.transactions.getDashboardStats(),
       ]);
       setCategories(catData);
       setTemplates(tempData);
-      setDashboardStats(statsData);
-      setCashbox({ balance: statsData.balance, lowThreshold: statsData.lowThreshold });
-      await fetchTransactions();
+      await Promise.all([
+        fetchTransactions(),
+        fetchStats(),
+      ]);
     } catch (err) {
       showToast('❌ Failed to fetch database state: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
@@ -168,12 +231,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
       isFirstMount.current = false;
       return;
     }
-    const fetchTxs = async () => {
+    const loadFilteredData = async () => {
       setLoading(true);
-      await fetchTransactions();
+      await Promise.all([
+        fetchTransactions(),
+        fetchStats(),
+      ]);
       setLoading(false);
     };
-    fetchTxs();
+    loadFilteredData();
   }, [currentPage, searchQuery, filterType, filterCategory, filterStartDate, filterEndDate]);
 
   const showToast = (msg: string) => {
@@ -255,8 +321,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
     }
   };
 
-  const handleExport = async (format: 'csv' | 'pdf') => {
-    showToast(`📥 Preparing statement export as ${format.toUpperCase()}...`);
+  const handleExport = async (format: 'csv' | 'pdf' | 'bulk_vouchers') => {
+    showToast(`📥 Preparing statement export as ${format === 'bulk_vouchers' ? 'ZIP' : format.toUpperCase()}...`);
     try {
       const params = {
         startDate: filterStartDate || undefined,
@@ -273,9 +339,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
       if (format === 'csv') {
         blobData = await api.transactions.exportCsv(params);
         filename = `transactions-report-${today}.csv`;
-      } else {
+      } else if (format === 'pdf') {
         blobData = await api.transactions.exportPdf(params);
         filename = `ledger-summary-${today}.pdf`;
+      } else {
+        blobData = await api.transactions.exportVouchers({
+          startDate: filterStartDate || undefined,
+          endDate: filterEndDate || undefined,
+        });
+        filename = `vouchers-${filterStartDate || 'all'}-to-${filterEndDate || 'all'}.zip`;
       }
 
       const url = URL.createObjectURL(new Blob([blobData]));
@@ -350,6 +422,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
     setFilterCategory('');
     setFilterStartDate('');
     setFilterEndDate('');
+    setDatePeriod('all');
   };
 
   // --- Filtered Transactions list ---
@@ -480,6 +553,59 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                       ＋ Record Expense
                     </button>
                   </div>
+                </div>
+
+                {/* Predefined Date period filter */}
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-wrap gap-3 items-center">
+                  <span className="text-xs font-bold text-slate-400">Filter Overview:</span>
+                  <select
+                    value={datePeriod}
+                    onChange={(e) => handleDatePeriodChange(e.target.value)}
+                    className="bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    <option value="all">All Time</option>
+                    <option value="thisMonth">This Month</option>
+                    <option value="lastMonth">Last Month</option>
+                    <option value="last3Months">Last 3 Months</option>
+                    <option value="last6Months">Last 6 Months</option>
+                    <option value="custom">Custom Date Range</option>
+                  </select>
+
+                  {datePeriod === 'custom' && (
+                    <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 animate-[pop_0.15s_ease]">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase select-none">From</span>
+                      <input
+                        type="date"
+                        value={filterStartDate}
+                        onChange={(e) => handleStartDateChange(e.target.value)}
+                        onClick={(e) => {
+                          try { e.currentTarget.showPicker(); } catch {}
+                        }}
+                        className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
+                      />
+                      <span className="text-[10px] text-slate-500 font-bold uppercase select-none">To</span>
+                      <input
+                        type="date"
+                        value={filterEndDate}
+                        onChange={(e) => handleEndDateChange(e.target.value)}
+                        onClick={(e) => {
+                          try { e.currentTarget.showPicker(); } catch {}
+                        }}
+                        className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
+                      />
+                    </div>
+                  )}
+
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={handleClearFilters}
+                      className="bg-red-950/40 hover:bg-red-950/80 text-red-400 hover:text-red-300 font-bold text-xs py-2 px-3 border border-red-900/30 hover:border-red-900/60 rounded-lg transition active:scale-[0.98] cursor-pointer ml-auto"
+                      title="Clear active filter"
+                    >
+                      🧹 Clear
+                    </button>
+                  )}
                 </div>
 
                 {/* Stats Metric Cards Grid */}
@@ -732,28 +858,43 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                     ))}
                   </select>
 
-                  <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase select-none">From</span>
-                    <input
-                      type="date"
-                      value={filterStartDate}
-                      onChange={(e) => setFilterStartDate(e.target.value)}
-                      onClick={(e) => {
-                        try { e.currentTarget.showPicker(); } catch {}
-                      }}
-                      className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
-                    />
-                    <span className="text-[10px] text-slate-500 font-bold uppercase select-none">To</span>
-                    <input
-                      type="date"
-                      value={filterEndDate}
-                      onChange={(e) => setFilterEndDate(e.target.value)}
-                      onClick={(e) => {
-                        try { e.currentTarget.showPicker(); } catch {}
-                      }}
-                      className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
-                    />
-                  </div>
+                  <select
+                    value={datePeriod}
+                    onChange={(e) => handleDatePeriodChange(e.target.value)}
+                    className="bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    <option value="all">All Time</option>
+                    <option value="thisMonth">This Month</option>
+                    <option value="lastMonth">Last Month</option>
+                    <option value="last3Months">Last 3 Months</option>
+                    <option value="last6Months">Last 6 Months</option>
+                    <option value="custom">Custom Date Range</option>
+                  </select>
+
+                  {datePeriod === 'custom' && (
+                    <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 animate-[pop_0.15s_ease]">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase select-none">From</span>
+                      <input
+                        type="date"
+                        value={filterStartDate}
+                        onChange={(e) => handleStartDateChange(e.target.value)}
+                        onClick={(e) => {
+                          try { e.currentTarget.showPicker(); } catch {}
+                        }}
+                        className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
+                      />
+                      <span className="text-[10px] text-slate-500 font-bold uppercase select-none">To</span>
+                      <input
+                        type="date"
+                        value={filterEndDate}
+                        onChange={(e) => handleEndDateChange(e.target.value)}
+                        onClick={(e) => {
+                          try { e.currentTarget.showPicker(); } catch {}
+                        }}
+                        className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
+                      />
+                    </div>
+                  )}
 
                   {hasActiveFilters && (
                     <button
@@ -783,6 +924,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                       title="Download summary statement PDF"
                     >
                       📄 Export PDF Summary
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExport('bulk_vouchers')}
+                      className="bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-350 hover:text-white font-bold text-xs py-2 px-3 rounded-lg flex items-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
+                      title="Download matching transaction vouchers as ZIP archive"
+                    >
+                      📦 Download Vouchers (ZIP)
                     </button>
                   </div>
                 </div>
@@ -957,6 +1106,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                   lowThreshold={cashbox.lowThreshold}
                   onRefresh={fetchInitialData}
                   toast={showToast}
+                  activeTab={adminActiveTab}
+                  setActiveTab={setAdminActiveTab}
                 />
               </section>
             )}

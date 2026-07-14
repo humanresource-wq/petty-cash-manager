@@ -28,7 +28,9 @@ public class ReportService {
         csv.append("Date & Time,Transaction No,Voucher Number,Company,Type,Description,Category,Subcategory,Payer,Payee,Amount,Receipt Status\n");
 
         for (PettyCashTransaction t : list) {
-            LocalDateTime ts = t.getTimestamp() != null ? t.getTimestamp() : t.getDate().atStartOfDay();
+            LocalDateTime ts = t.getTimestamp() != null ?
+                    LocalDateTime.ofInstant(t.getTimestamp(), java.time.ZoneId.systemDefault()) :
+                    t.getDate().atStartOfDay();
             csv.append(escapeCsvField(ts.format(DATETIME_FORMATTER))).append(",");
             csv.append(escapeCsvField(t.getTransactionNo())).append(",");
             csv.append(escapeCsvField(t.getVoucherNumber() != null ? t.getVoucherNumber() : "")).append(",");
@@ -138,10 +140,11 @@ public class ReportService {
                 table.addCell(cell);
             }
 
-            // Table body rows
             for (PettyCashTransaction t : list) {
                 // Date & Time
-                LocalDateTime ts = t.getTimestamp() != null ? t.getTimestamp() : t.getDate().atStartOfDay();
+                LocalDateTime ts = t.getTimestamp() != null ?
+                        LocalDateTime.ofInstant(t.getTimestamp(), java.time.ZoneId.systemDefault()) :
+                        t.getDate().atStartOfDay();
                 table.addCell(createTableCell(ts.format(DATETIME_FORMATTER), tableBodyFont, false, false));
                 // Tx No
                 table.addCell(createTableCell(t.getTransactionNo(), tableBodyFont, false, false));

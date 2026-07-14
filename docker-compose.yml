@@ -9,10 +9,38 @@ services:
     ports:
       - "${DB_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  db-backup:
+    image: prodrigestivill/postgres-backup-local:16
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST:       db
+      SCHEDULE:            ${BACKUP_SCHEDULE:-@daily}
+      POSTGRES_EXTRA_OPTS: "-Z6 --schema=public --blobs"
+    volumes:
+      - ./backups:/backups
+
+  drive-uploader:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.backup
+    restart: unless-stopped
+    depends_on:
+      db-backup:
+        condition: service_started
+    env_file:
+      - .env
+    volumes:
+      - ./backups:/backups:ro
 
   backend:
     build:

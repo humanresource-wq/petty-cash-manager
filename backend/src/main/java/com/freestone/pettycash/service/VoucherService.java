@@ -58,7 +58,9 @@ public class VoucherService {
             leftCell.addElement(new Paragraph("Transaction No: " + tx.getTransactionNo(), regularFont));
             leftCell.addElement(new Paragraph("Voucher Number: " + (tx.getVoucherNumber() != null ? tx.getVoucherNumber() : "—"), headerFont));
             leftCell.addElement(new Paragraph("Company: " + (tx.getCompany() != null ? tx.getCompany() : "—"), regularFont));
-            LocalDateTime ts = tx.getTimestamp() != null ? tx.getTimestamp() : tx.getDate().atStartOfDay();
+            LocalDateTime ts = tx.getTimestamp() != null ?
+                    LocalDateTime.ofInstant(tx.getTimestamp(), java.time.ZoneId.systemDefault()) :
+                    tx.getDate().atStartOfDay();
             leftCell.addElement(new Paragraph("Date & Time: " + ts.format(DATE_TIME_FORMATTER), regularFont));
             leftCell.addElement(new Paragraph("Type: " + tx.getType().name(), regularFont));
             if (tx.getCategory() != null) {
