@@ -29,7 +29,7 @@ class ReportControllerTest {
     @WithUserDetails("google-sub-harsh")
     void exportPdfReturns200AndPdf() throws Exception {
         mockMvc.perform(get("/api/v1/reports/export/pdf")
-                        .param("company", "Freestone Infotech LLP")
+                        .param("company", "Freestone Technologies LLP")
                         .param("type", "EXPENSE")
                         .param("search", "coffee"))
                 .andExpect(status().isOk())

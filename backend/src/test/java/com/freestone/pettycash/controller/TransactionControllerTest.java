@@ -75,7 +75,7 @@ class TransactionControllerTest {
                 testCategory.getId(),
                 null,
                 "VCH-CONT-001",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
 
         MockMultipartFile requestPart = new MockMultipartFile(
@@ -111,7 +111,7 @@ class TransactionControllerTest {
                 testCategory.getId(),
                 null,
                 "VCH-CONT-002",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         TransactionResponse created = transactionService.recordTransaction(createReq, "google-sub-harsh", null, null, null);
 
@@ -124,7 +124,7 @@ class TransactionControllerTest {
                 testCategory.getId(),
                 null,
                 "VCH-CONT-002",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
 
         mockMvc.perform(put("/api/v1/transactions/{id}", created.id())
@@ -153,7 +153,7 @@ class TransactionControllerTest {
                 testCategory.getId(),
                 null,
                 "VCH-CONT-BULK",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         transactionService.recordTransaction(createReq, "google-sub-harsh", null, null, null);
 
