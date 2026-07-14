@@ -43,21 +43,22 @@ public interface TransactionRepository extends JpaRepository<PettyCashTransactio
     List<PettyCashTransaction> findAllWithAssociations();
 
     @Query(value = "SELECT t FROM PettyCashTransaction t " +
-           "LEFT JOIN FETCH t.category " +
+           "LEFT JOIN FETCH t.category c " +
            "LEFT JOIN FETCH t.subcategory " +
            "WHERE (:hasStartDate = false OR t.date >= :startDate) " +
            "AND (:hasEndDate = false OR t.date <= :endDate) " +
            "AND (:hasType = false OR t.type = :type) " +
-           "AND (:hasCategoryName = false OR LOWER(t.category.name) = :categoryName) " +
+           "AND (:hasCategoryName = false OR LOWER(c.name) = :categoryName) " +
            "AND (:hasSearch = false OR LOWER(t.description) LIKE :search " +
            "OR LOWER(t.payee) LIKE :search " +
            "OR LOWER(t.transactionNo) LIKE :search " +
            "OR LOWER(t.payer) LIKE :search)",
            countQuery = "SELECT COUNT(t) FROM PettyCashTransaction t " +
+           "LEFT JOIN t.category c " +
            "WHERE (:hasStartDate = false OR t.date >= :startDate) " +
            "AND (:hasEndDate = false OR t.date <= :endDate) " +
            "AND (:hasType = false OR t.type = :type) " +
-           "AND (:hasCategoryName = false OR LOWER(t.category.name) = :categoryName) " +
+           "AND (:hasCategoryName = false OR LOWER(c.name) = :categoryName) " +
            "AND (:hasSearch = false OR LOWER(t.description) LIKE :search " +
            "OR LOWER(t.payee) LIKE :search " +
            "OR LOWER(t.transactionNo) LIKE :search " +
