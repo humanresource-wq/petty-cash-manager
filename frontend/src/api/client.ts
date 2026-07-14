@@ -171,12 +171,16 @@ export const api = {
       endDate?: string;
       company?: string;
       categoryName?: string;
+      type?: string;
+      search?: string;
     }) => client.get('/reports/export/pdf', { params, responseType: 'blob' }).then((r) => r.data),
     exportCsv: (params?: {
       startDate?: string;
       endDate?: string;
       company?: string;
       categoryName?: string;
+      type?: string;
+      search?: string;
     }) => client.get('/reports/export/csv', { params, responseType: 'blob' }).then((r) => r.data),
   },
 };

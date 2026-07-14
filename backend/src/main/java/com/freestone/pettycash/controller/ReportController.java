@@ -1,6 +1,7 @@
 package com.freestone.pettycash.controller;
 
 import com.freestone.pettycash.model.PettyCashTransaction;
+import com.freestone.pettycash.model.TransactionType;
 import com.freestone.pettycash.repository.TransactionRepository;
 import com.freestone.pettycash.service.CustomReportService;
 import lombok.RequiredArgsConstructor;
@@ -29,14 +30,19 @@ public class ReportController {
             @RequestParam(required = false) LocalDate startDate,
             @RequestParam(required = false) LocalDate endDate,
             @RequestParam(required = false) String company,
-            @RequestParam(required = false) String categoryName
+            @RequestParam(required = false) String categoryName,
+            @RequestParam(required = false) TransactionType type,
+            @RequestParam(required = false) String search
     ) {
+        String searchParam = (search == null || search.isBlank()) ? null : "%" + search.trim().toLowerCase() + "%";
         List<PettyCashTransaction> list = transactionRepository.findFilteredList(
-                startDate, endDate, company != null && !company.isBlank() ? company.trim() : null,
-                categoryName != null && !categoryName.isBlank() ? categoryName.trim() : null);
+                startDate, endDate, 
+                company != null && !company.isBlank() ? company.trim() : null,
+                categoryName != null && !categoryName.isBlank() ? categoryName.trim() : null,
+                type, searchParam);
 
         byte[] pdfBytes = customReportService.generatePdfCustomReport(
-                list, startDate, endDate, company, categoryName);
+                list, startDate, endDate, company, categoryName, type, search);
 
         String filename = "petty_cash_report_" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".pdf";
 
@@ -51,14 +57,19 @@ public class ReportController {
             @RequestParam(required = false) LocalDate startDate,
             @RequestParam(required = false) LocalDate endDate,
             @RequestParam(required = false) String company,
-            @RequestParam(required = false) String categoryName
+            @RequestParam(required = false) String categoryName,
+            @RequestParam(required = false) TransactionType type,
+            @RequestParam(required = false) String search
     ) {
+        String searchParam = (search == null || search.isBlank()) ? null : "%" + search.trim().toLowerCase() + "%";
         List<PettyCashTransaction> list = transactionRepository.findFilteredList(
-                startDate, endDate, company != null && !company.isBlank() ? company.trim() : null,
-                categoryName != null && !categoryName.isBlank() ? categoryName.trim() : null);
+                startDate, endDate, 
+                company != null && !company.isBlank() ? company.trim() : null,
+                categoryName != null && !categoryName.isBlank() ? categoryName.trim() : null,
+                type, searchParam);
 
         byte[] csvBytes = customReportService.generateCsvCustomReport(
-                list, startDate, endDate, company, categoryName);
+                list, startDate, endDate, company, categoryName, type, search);
 
         String filename = "petty_cash_report_" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".csv";
 

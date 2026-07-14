@@ -84,11 +84,18 @@ public interface TransactionRepository extends JpaRepository<PettyCashTransactio
            "AND (:endDate IS NULL OR t.date <= :endDate) " +
            "AND (:company IS NULL OR t.company = :company) " +
            "AND (:categoryName IS NULL OR LOWER(c.name) = LOWER(:categoryName)) " +
+           "AND (:type IS NULL OR t.type = :type) " +
+           "AND (:search IS NULL OR LOWER(t.description) LIKE :search " +
+           "OR LOWER(t.payee) LIKE :search " +
+           "OR LOWER(t.transactionNo) LIKE :search " +
+           "OR LOWER(t.payer) LIKE :search) " +
            "ORDER BY t.date DESC, t.id DESC")
     List<PettyCashTransaction> findFilteredList(
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate,
             @Param("company") String company,
-            @Param("categoryName") String categoryName
+            @Param("categoryName") String categoryName,
+            @Param("type") TransactionType type,
+            @Param("search") String search
     );
 }

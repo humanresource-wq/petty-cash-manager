@@ -28,15 +28,17 @@ public class CustomReportService {
         public BigDecimal totalAdded = BigDecimal.ZERO;
     }
 
-    public byte[] generateCsvCustomReport(List<PettyCashTransaction> list, LocalDate start, LocalDate end, String filterCompany, String filterCategory) {
+    public byte[] generateCsvCustomReport(List<PettyCashTransaction> list, LocalDate start, LocalDate end, String filterCompany, String filterCategory, TransactionType type, String search) {
         StringBuilder csv = new StringBuilder();
         
         // 1. Title & Metadata
         csv.append("PETTY CASH CUSTOM SUMMARY REPORT\n");
         csv.append("Generated on: ").append(LocalDateTime.now().format(DATETIME_FORMATTER)).append("\n");
         csv.append("Period: ").append(start != null ? start.toString() : "All-Time").append(" to ").append(end != null ? end.toString() : "All-Time").append("\n");
-        if (filterCompany != null) csv.append("Filtered Company: ").append(filterCompany).append("\n");
-        if (filterCategory != null) csv.append("Filtered Category: ").append(filterCategory).append("\n");
+        if (filterCompany != null && !filterCompany.isBlank()) csv.append("Filtered Company: ").append(filterCompany).append("\n");
+        if (filterCategory != null && !filterCategory.isBlank()) csv.append("Filtered Category: ").append(filterCategory).append("\n");
+        if (type != null) csv.append("Filtered Type: ").append(type.name()).append("\n");
+        if (search != null && !search.isBlank()) csv.append("Search Term: ").append(search).append("\n");
         csv.append("\n");
 
         // 2. Company wise Breakdown
@@ -131,7 +133,7 @@ public class CustomReportService {
         return value;
     }
 
-    public byte[] generatePdfCustomReport(List<PettyCashTransaction> list, LocalDate start, LocalDate end, String filterCompany, String filterCategory) {
+    public byte[] generatePdfCustomReport(List<PettyCashTransaction> list, LocalDate start, LocalDate end, String filterCompany, String filterCategory, TransactionType type, String search) {
         Document document = new Document(PageSize.A4, 36, 36, 54, 54);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
@@ -163,20 +165,62 @@ public class CustomReportService {
             }
             Paragraph subtitle = new Paragraph(dateRange, subtitleFont);
             subtitle.setAlignment(Element.ALIGN_CENTER);
-            subtitle.setSpacingAfter(18);
+            subtitle.setSpacingAfter(12);
             document.add(subtitle);
 
             // Filters Summary Box
-            if (filterCompany != null || filterCategory != null) {
-                Paragraph filtersText = new Paragraph("Applied Filters: " +
-                        (filterCompany != null ? "Company = " + filterCompany : "") +
-                        (filterCompany != null && filterCategory != null ? " | " : "") +
-                        (filterCategory != null ? "Category = " + filterCategory : ""),
-                        FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 9, Color.decode("#475569")));
+            if (filterCompany != null || filterCategory != null || type != null || search != null) {
+                StringBuilder fs = new StringBuilder("Applied Filters: ");
+                boolean added = false;
+                if (filterCompany != null && !filterCompany.isBlank()) {
+                    fs.append("Company = ").append(filterCompany);
+                    added = true;
+                }
+                if (filterCategory != null && !filterCategory.isBlank()) {
+                    if (added) fs.append(" | ");
+                    fs.append("Category = ").append(filterCategory);
+                    added = true;
+                }
+                if (type != null) {
+                    if (added) fs.append(" | ");
+                    fs.append("Type = ").append(type.name());
+                    added = true;
+                }
+                if (search != null && !search.isBlank()) {
+                    if (added) fs.append(" | ");
+                    fs.append("Search = \"").append(search).append("\"");
+                }
+                Paragraph filtersText = new Paragraph(fs.toString(), FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 9, Color.decode("#475569")));
                 filtersText.setAlignment(Element.ALIGN_CENTER);
                 filtersText.setSpacingAfter(18);
                 document.add(filtersText);
             }
+
+            // Overview Summary Metrics Boxes (regardless of range duration)
+            BigDecimal totalSpent = BigDecimal.ZERO;
+            BigDecimal totalAdded = BigDecimal.ZERO;
+            for (PettyCashTransaction t : list) {
+                if (t.getType() == TransactionType.EXPENSE) {
+                    totalSpent = totalSpent.add(t.getAmount());
+                } else if (t.getType() == TransactionType.TOPUP) {
+                    totalAdded = totalAdded.add(t.getAmount());
+                }
+            }
+            BigDecimal netChange = totalAdded.subtract(totalSpent);
+
+            PdfPTable overviewTable = new PdfPTable(4);
+            overviewTable.setWidthPercentage(100);
+            overviewTable.setSpacingAfter(20);
+
+            Font metaLabelFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, Color.decode("#475569"));
+            Font metaValueFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, Color.decode("#0f172a"));
+
+            overviewTable.addCell(createSummaryCell("TOTAL REPLENISHMENTS", "₹" + totalAdded, metaLabelFont, metaValueFont, Color.decode("#f0fdf4"), Color.decode("#bbf7d0")));
+            overviewTable.addCell(createSummaryCell("TOTAL SPENT", "₹" + totalSpent, metaLabelFont, metaValueFont, Color.decode("#fef2f2"), Color.decode("#fecaca")));
+            overviewTable.addCell(createSummaryCell("NET MOVEMENT", "₹" + netChange, metaLabelFont, metaValueFont, Color.decode("#f0f9ff"), Color.decode("#bae6fd")));
+            overviewTable.addCell(createSummaryCell("TRANSACTION COUNT", String.valueOf(list.size()), metaLabelFont, metaValueFont, Color.decode("#f8fafc"), Color.decode("#e2e8f0")));
+
+            document.add(overviewTable);
 
             // 2. Section: Company wise Breakdown
             Paragraph compHeading = new Paragraph("Company Statistics Summary", h2Font);
@@ -357,6 +401,25 @@ public class CustomReportService {
         }
 
         return out.toByteArray();
+    }
+
+    private PdfPCell createSummaryCell(String label, String value, Font labelFont, Font valFont, Color bg, Color border) {
+        PdfPCell cell = new PdfPCell();
+        cell.setBackgroundColor(bg);
+        cell.setBorderColor(border);
+        cell.setPadding(8);
+        cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+
+        Paragraph labelPara = new Paragraph(label, labelFont);
+        labelPara.setAlignment(Element.ALIGN_CENTER);
+        cell.addElement(labelPara);
+
+        Paragraph valPara = new Paragraph(value, valFont);
+        valPara.setAlignment(Element.ALIGN_CENTER);
+        valPara.setSpacingBefore(4);
+        cell.addElement(valPara);
+
+        return cell;
     }
 
     private PdfPCell createTableCell(String text, Font font, boolean isHeader, int alignment) {

@@ -29,7 +29,9 @@ class ReportControllerTest {
     @WithUserDetails("google-sub-harsh")
     void exportPdfReturns200AndPdf() throws Exception {
         mockMvc.perform(get("/api/v1/reports/export/pdf")
-                        .param("company", "Freestone Infotech LLP"))
+                        .param("company", "Freestone Infotech LLP")
+                        .param("type", "EXPENSE")
+                        .param("search", "coffee"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("attachment")))
                 .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString(".pdf")))
@@ -41,7 +43,9 @@ class ReportControllerTest {
     @WithUserDetails("google-sub-harsh")
     void exportCsvReturns200AndCsv() throws Exception {
         mockMvc.perform(get("/api/v1/reports/export/csv")
-                        .param("categoryName", "Stationery"))
+                        .param("categoryName", "Stationery")
+                        .param("type", "EXPENSE")
+                        .param("search", "markers"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("attachment")))
                 .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString(".csv")))

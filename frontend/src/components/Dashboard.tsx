@@ -338,6 +338,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
         endDate: filterEndDate || undefined,
         company: filterCompany || undefined,
         categoryName: filterCategory || undefined,
+        type: filterType || undefined,
+        search: searchQuery || undefined,
       };
 
       let blobData;
