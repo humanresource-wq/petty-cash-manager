@@ -41,10 +41,7 @@ public class CustomReportService {
         if (search != null && !search.isBlank()) csv.append("Search Term: ").append(search).append("\n");
         csv.append("\n");
 
-        // 2. Company wise Breakdown
-        csv.append("--- COMPANY BREAKDOWN ---\n");
-        csv.append("Company,Category,Total Expense (Spent),Total Topup (Added)\n");
-        
+        // Collect all unique companies present in the transactions
         Map<String, Map<String, BigDecimal>> companyCategoryTotals = new TreeMap<>();
         Map<String, BigDecimal> companyTotalSpent = new TreeMap<>();
         Map<String, BigDecimal> companyTotalAdded = new TreeMap<>();
@@ -62,19 +59,50 @@ public class CustomReportService {
             }
         }
 
-        for (String company : companyCategoryTotals.keySet()) {
-            Map<String, BigDecimal> catMap = companyCategoryTotals.get(company);
-            for (String category : catMap.keySet()) {
-                csv.append(escapeCsvField(company)).append(",")
-                   .append(escapeCsvField(category)).append(",")
-                   .append(catMap.get(category).toString()).append(",")
-                   .append("0.00\n");
-            }
-            csv.append(escapeCsvField(company)).append(",")
-               .append("OVERALL TOTAL").append(",")
-               .append(companyTotalSpent.getOrDefault(company, BigDecimal.ZERO).toString()).append(",")
-               .append(companyTotalAdded.getOrDefault(company, BigDecimal.ZERO).toString()).append("\n");
+        Set<String> allCompanies = new TreeSet<>();
+        allCompanies.addAll(companyCategoryTotals.keySet());
+        allCompanies.addAll(companyTotalAdded.keySet());
+
+        // 2. Company wise Breakdown in Column Format
+        csv.append("--- COMPANY STATISTICS SUMMARY ---\n");
+        
+        // Header Row: Category, [Company 1], [Company 2], ...
+        csv.append("Category");
+        for (String company : allCompanies) {
+            csv.append(",").append(escapeCsvField(company));
         }
+        csv.append("\n");
+
+        // Collect all categories across all companies
+        Set<String> allCategories = new TreeSet<>();
+        for (Map<String, BigDecimal> catMap : companyCategoryTotals.values()) {
+            allCategories.addAll(catMap.keySet());
+        }
+
+        // Data Rows for Categories
+        for (String category : allCategories) {
+            csv.append(escapeCsvField(category));
+            for (String company : allCompanies) {
+                BigDecimal amt = companyCategoryTotals.getOrDefault(company, Collections.emptyMap())
+                                                      .getOrDefault(category, BigDecimal.ZERO);
+                csv.append(",").append(amt.toString());
+            }
+            csv.append("\n");
+        }
+
+        // Row: Total Expenses Spent (column totals)
+        csv.append("TOTAL EXPENSES SPENT");
+        for (String company : allCompanies) {
+            csv.append(",").append(companyTotalSpent.getOrDefault(company, BigDecimal.ZERO).toString());
+        }
+        csv.append("\n");
+
+        // Row: Total Replenishments Added (column totals)
+        csv.append("TOTAL REPLENISHMENTS ADDED");
+        for (String company : allCompanies) {
+            csv.append(",").append(companyTotalAdded.getOrDefault(company, BigDecimal.ZERO).toString());
+        }
+        csv.append("\n");
         csv.append("\n");
 
         // 3. Monthly Breakdown
@@ -103,7 +131,7 @@ public class CustomReportService {
 
         // 4. Detailed Ledger Section
         csv.append("--- DETAILED TRANSACTIONS ---\n");
-        csv.append("Date,Transaction No,Voucher Number,Company,Type,Description,Category,Subcategory,Payer,Payee,Amount\n");
+        csv.append("Date,Transaction No,Voucher Number,Company,Type,Particulars,Category,Subcategory,Payer,Payee,Amount\n");
 
         for (PettyCashTransaction t : list) {
             csv.append(t.getDate().toString()).append(",");
@@ -222,7 +250,7 @@ public class CustomReportService {
 
             document.add(overviewTable);
 
-            // 2. Section: Company wise Breakdown
+            // 2. Section: Company wise Breakdown (Columns Format)
             Paragraph compHeading = new Paragraph("Company Statistics Summary", h2Font);
             compHeading.setSpacingAfter(10);
             document.add(compHeading);
@@ -253,56 +281,84 @@ public class CustomReportService {
                 allCompanies.addAll(companyCategoryTotals.keySet());
                 allCompanies.addAll(companyTotalAdded.keySet());
 
-                for (String company : allCompanies) {
-                    Paragraph compSubHeading = new Paragraph(company, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, Color.decode("#1e3a8a")));
-                    compSubHeading.setSpacingAfter(6);
-                    document.add(compSubHeading);
-
-                    PdfPTable table = new PdfPTable(new float[]{3.0f, 1.5f, 1.5f});
-                    table.setWidthPercentage(100);
-                    table.setSpacingAfter(12);
-
-                    // Table headers
-                    String[] headers = {"Category Name", "Total Spent (Expenses)", "Total Added (Top-ups)"};
-                    for (String header : headers) {
-                        PdfPCell cell = new PdfPCell(new Paragraph(header, tableHeaderFont));
-                        cell.setBackgroundColor(Color.decode("#3b82f6"));
-                        cell.setPadding(5);
-                        cell.setBorderColor(Color.decode("#93c5fd"));
-                        cell.setHorizontalAlignment(header.equals("Category Name") ? Element.ALIGN_LEFT : Element.ALIGN_RIGHT);
-                        table.addCell(cell);
-                    }
-
-                    Map<String, BigDecimal> catMap = companyCategoryTotals.getOrDefault(company, Collections.emptyMap());
-                    for (String category : catMap.keySet()) {
-                        table.addCell(createTableCell(category, tableBodyFont, false, Element.ALIGN_LEFT));
-                        table.addCell(createTableCell("₹" + catMap.get(category).toString(), tableBodyFont, false, Element.ALIGN_RIGHT));
-                        table.addCell(createTableCell("₹0.00", tableBodyFont, false, Element.ALIGN_RIGHT));
-                    }
-
-                    // Company Total Row
-                    PdfPCell totalLabelCell = new PdfPCell(new Paragraph("Overall Total for " + company, tableHeaderFont));
-                    totalLabelCell.setBackgroundColor(Color.decode("#1e40af"));
-                    totalLabelCell.setPadding(5);
-                    totalLabelCell.setBorderColor(Color.decode("#93c5fd"));
-                    table.addCell(totalLabelCell);
-
-                    PdfPCell totalSpentCell = new PdfPCell(new Paragraph("₹" + companyTotalSpent.getOrDefault(company, BigDecimal.ZERO), tableHeaderFont));
-                    totalSpentCell.setBackgroundColor(Color.decode("#1e40af"));
-                    totalSpentCell.setPadding(5);
-                    totalSpentCell.setBorderColor(Color.decode("#93c5fd"));
-                    totalSpentCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
-                    table.addCell(totalSpentCell);
-
-                    PdfPCell totalAddedCell = new PdfPCell(new Paragraph("₹" + companyTotalAdded.getOrDefault(company, BigDecimal.ZERO), tableHeaderFont));
-                    totalAddedCell.setBackgroundColor(Color.decode("#1e40af"));
-                    totalAddedCell.setPadding(5);
-                    totalAddedCell.setBorderColor(Color.decode("#93c5fd"));
-                    totalAddedCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
-                    table.addCell(totalAddedCell);
-
-                    document.add(table);
+                int numCols = 1 + allCompanies.size();
+                float[] colWidths = new float[numCols];
+                colWidths[0] = 2.5f; // Category Name
+                for (int i = 1; i < numCols; i++) {
+                    colWidths[i] = 2.0f; // Company Columns
                 }
+
+                PdfPTable table = new PdfPTable(colWidths);
+                table.setWidthPercentage(100);
+                table.setSpacingAfter(18);
+
+                // Table Header Row
+                PdfPCell firstHeaderCell = new PdfPCell(new Paragraph("Category Name", tableHeaderFont));
+                firstHeaderCell.setBackgroundColor(Color.decode("#3b82f6"));
+                firstHeaderCell.setPadding(6);
+                firstHeaderCell.setBorderColor(Color.decode("#93c5fd"));
+                table.addCell(firstHeaderCell);
+
+                for (String company : allCompanies) {
+                    PdfPCell cell = new PdfPCell(new Paragraph(company, tableHeaderFont));
+                    cell.setBackgroundColor(Color.decode("#3b82f6"));
+                    cell.setPadding(6);
+                    cell.setBorderColor(Color.decode("#93c5fd"));
+                    cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                    table.addCell(cell);
+                }
+
+                // Collect all categories
+                Set<String> allCategories = new TreeSet<>();
+                for (Map<String, BigDecimal> catMap : companyCategoryTotals.values()) {
+                    allCategories.addAll(catMap.keySet());
+                }
+
+                // Data Rows
+                for (String category : allCategories) {
+                    table.addCell(createTableCell(category, tableBodyFont, false, Element.ALIGN_LEFT));
+                    for (String company : allCompanies) {
+                        BigDecimal amt = companyCategoryTotals.getOrDefault(company, Collections.emptyMap())
+                                                              .getOrDefault(category, BigDecimal.ZERO);
+                        table.addCell(createTableCell("₹" + amt, tableBodyFont, false, Element.ALIGN_RIGHT));
+                    }
+                }
+
+                // Row: Total Expenses Spent (column totals)
+                PdfPCell totalSpentLabelCell = new PdfPCell(new Paragraph("Total Expenses Spent", boldBodyFont));
+                totalSpentLabelCell.setBackgroundColor(Color.decode("#f8fafc"));
+                totalSpentLabelCell.setPadding(6);
+                totalSpentLabelCell.setBorderColor(Color.decode("#cbd5e1"));
+                table.addCell(totalSpentLabelCell);
+
+                for (String company : allCompanies) {
+                    BigDecimal totalSpentVal = companyTotalSpent.getOrDefault(company, BigDecimal.ZERO);
+                    PdfPCell cell = new PdfPCell(new Paragraph("₹" + totalSpentVal, boldBodyFont));
+                    cell.setBackgroundColor(Color.decode("#f8fafc"));
+                    cell.setPadding(6);
+                    cell.setBorderColor(Color.decode("#cbd5e1"));
+                    cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                    table.addCell(cell);
+                }
+
+                // Row: Total Replenishments Added (column totals)
+                PdfPCell totalAddedLabelCell = new PdfPCell(new Paragraph("Total Replenishments Added", boldBodyFont));
+                totalAddedLabelCell.setBackgroundColor(Color.decode("#f8fafc"));
+                totalAddedLabelCell.setPadding(6);
+                totalAddedLabelCell.setBorderColor(Color.decode("#cbd5e1"));
+                table.addCell(totalAddedLabelCell);
+
+                for (String company : allCompanies) {
+                    BigDecimal totalAddedVal = companyTotalAdded.getOrDefault(company, BigDecimal.ZERO);
+                    PdfPCell cell = new PdfPCell(new Paragraph("₹" + totalAddedVal, boldBodyFont));
+                    cell.setBackgroundColor(Color.decode("#f8fafc"));
+                    cell.setPadding(6);
+                    cell.setBorderColor(Color.decode("#cbd5e1"));
+                    cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                    table.addCell(cell);
+                }
+
+                document.add(table);
             }
 
             // 3. Section: Monthly Breakdown
@@ -372,7 +428,7 @@ public class CustomReportService {
                 PdfPTable ledgerTable = new PdfPTable(new float[]{1.2f, 1.2f, 1.8f, 1.5f, 2.5f, 1.0f, 1.2f});
                 ledgerTable.setWidthPercentage(100);
 
-                String[] lHeaders = {"Date", "Tx No", "Company", "Category", "Description", "Type", "Amount"};
+                String[] lHeaders = {"Date", "Tx No", "Company", "Category", "Particulars", "Type", "Amount"};
                 for (String header : lHeaders) {
                     PdfPCell cell = new PdfPCell(new Paragraph(header, tableHeaderFont));
                     cell.setBackgroundColor(Color.decode("#0f172a"));
