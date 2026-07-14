@@ -20,15 +20,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
       POSTGRES_HOST:       db
-      POSTGRES_DB:         ${POSTGRES_DB:-pettycash}
-      POSTGRES_USER:       ${POSTGRES_USER:-pettycash}
-      POSTGRES_PASSWORD:   ${POSTGRES_PASSWORD:-pettycashpass}
       SCHEDULE:            ${BACKUP_SCHEDULE:-@daily}
-      BACKUP_KEEP_DAYS:    ${BACKUP_KEEP_DAYS:-7}
-      BACKUP_KEEP_WEEKS:   ${BACKUP_KEEP_WEEKS:-4}
-      BACKUP_KEEP_MONTHS:  ${BACKUP_KEEP_MONTHS:-6}
       POSTGRES_EXTRA_OPTS: "-Z6 --schema=public --blobs"
     volumes:
       - ./backups:/backups
@@ -41,6 +37,8 @@ services:
     depends_on:
       db-backup:
         condition: service_started
+    env_file:
+      - .env
     volumes:
       - ./backups:/backups:ro
     environment:
