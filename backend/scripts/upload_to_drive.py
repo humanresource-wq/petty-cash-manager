@@ -45,7 +45,12 @@ def _get_or_create_folder(service, name: str, parent_id: str) -> str:
         f"name='{name}' and mimeType='application/vnd.google-apps.folder'"
         f" and '{parent_id}' in parents and trashed=false"
     )
-    results = service.files().list(q=q, fields="files(id)").execute()
+    results = service.files().list(
+        q=q,
+        fields="files(id)",
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True
+    ).execute()
     files = results.get("files", [])
     if files:
         return files[0]["id"]
@@ -54,7 +59,11 @@ def _get_or_create_folder(service, name: str, parent_id: str) -> str:
         "mimeType": "application/vnd.google-apps.folder",
         "parents": [parent_id],
     }
-    folder = service.files().create(body=meta, fields="id").execute()
+    folder = service.files().create(
+        body=meta,
+        fields="id",
+        supportsAllDrives=True
+    ).execute()
     return folder["id"]
 
 
@@ -75,7 +84,12 @@ def upload_latest():
 
         media = MediaFileUpload(str(latest), mimetype="application/gzip", resumable=True)
         file_meta = {"name": latest.name, "parents": [folder_id]}
-        service.files().create(body=file_meta, media_body=media, fields="id").execute()
+        service.files().create(
+            body=file_meta,
+            media_body=media,
+            fields="id",
+            supportsAllDrives=True
+        ).execute()
         log.info("Uploaded %s successfully", latest.name)
     except Exception:
         log.exception("Upload failed")

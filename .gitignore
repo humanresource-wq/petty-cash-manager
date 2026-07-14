@@ -38,3 +38,6 @@ pgdata/
 
 # ===== Agent Workspace =====
 .agents/
+
+# ===== Backups =====
+backups/

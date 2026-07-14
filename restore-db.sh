@@ -35,7 +35,18 @@ if [[ ! -f "$ENV_FILE" ]]; then
 fi
 
 # ── Load environment ──────────────────────────────────────────────────────────
-set -a; source "$ENV_FILE"; set +a
+while IFS= read -r line || [[ -n "$line" ]]; do
+  # Skip comments and empty lines
+  if [[ "$line" =~ ^[[:space:]]*# ]] || [[ "$line" =~ ^[[:space:]]*$ ]]; then
+    continue
+  fi
+  # Parse keys and values
+  if [[ "$line" == *"="* ]]; then
+    key=$(echo "$line" | cut -d'=' -f1 | xargs)
+    val=$(echo "$line" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+    export "$key"="$val"
+  fi
+done < "$ENV_FILE"
 
 POSTGRES_DB="${POSTGRES_DB:-pettycash}"
 POSTGRES_USER="${POSTGRES_USER:-pettycash}"
@@ -152,6 +163,11 @@ echo "      Recreating database '$POSTGRES_DB'..."
 $COMPOSE exec -T db \
   psql -U "$POSTGRES_USER" -d postgres \
   -c "CREATE DATABASE \"$POSTGRES_DB\" OWNER \"$POSTGRES_USER\";" \
+  > /dev/null
+
+$COMPOSE exec -T db \
+  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "DROP SCHEMA IF EXISTS public;" \
   > /dev/null
 ok "Database recreated."
 
