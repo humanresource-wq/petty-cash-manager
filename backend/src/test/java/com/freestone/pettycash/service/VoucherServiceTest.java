@@ -31,13 +31,13 @@ class VoucherServiceTest {
                 BigDecimal.valueOf(150.00),
                 "Auto ride to client office",
                 LocalDate.now(),
-                "harsh@example.com",
+                "harshada.surve@freestoneinfotech.com",
                 "Local Driver",
                 category,
                 subcategory
         );
         transaction.setVoucherNumber("Voc-001-09-12-2026");
-        transaction.setCompany("Freestone Infotech LLP");
+        transaction.setCompany("Freestone Technologies LLP");
 
         byte[] pdfBytes = voucherService.generateTransactionVoucher(transaction);
 

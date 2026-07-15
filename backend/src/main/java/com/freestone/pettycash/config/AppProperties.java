@@ -19,7 +19,7 @@ public class AppProperties {
     /**
      * List of registered companies for petty cash records.
      */
-    private List<String> companies = List.of("Freestone Infotech LLP", "Freestone Infotech PVT LTD");
+    private List<String> companies = List.of("Freestone Infotech Pvt Ltd", "Freestone Technologies LLP");
 
     /**
      * Nested configuration properties under "app.transaction".

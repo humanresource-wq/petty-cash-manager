@@ -85,7 +85,7 @@ class TransactionServiceTest {
                 null,
                 null,
                 "Voc-topup-001",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
 
         TransactionResponse response = transactionService.recordTransaction(request, "admin@example.com", null, null, null);
@@ -117,7 +117,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 testSubcategory.getId(),
                 "Voc-expense-002",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
 
         TransactionResponse response = transactionService.recordTransaction(request, "admin@example.com", null, null, null);
@@ -148,7 +148,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 testSubcategory.getId(),
                 "Voc-expense-003",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
 
         byte[] fileBytes = "test-receipt-data".getBytes();
@@ -177,7 +177,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 testSubcategory.getId(),
                 "Voc-expense-004",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
 
         assertThatThrownBy(() -> transactionService.recordTransaction(request, "admin@example.com", null, null, null))
@@ -209,7 +209,7 @@ class TransactionServiceTest {
                         testCategory.getId(),
                         testSubcategory.getId(),
                         "Voc-concur-" + index,
-                        "Freestone Infotech LLP"
+                        "Freestone Technologies LLP"
                 );
                 // Call recording service
                 return transactionService.recordTransaction(request, "admin@example.com", null, null, null);
@@ -271,7 +271,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 null,
                 "Voc-upd-001",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
         assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("4800.00");
@@ -285,7 +285,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 null,
                 "Voc-upd-001",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         TransactionResponse updated = transactionService.updateTransaction(created.id(), updateReq);
         assertThat(updated.amount()).isEqualByComparingTo("500.00");
@@ -311,7 +311,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 null,
                 "Voc-upd-002",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
         assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("2000.00");
@@ -325,7 +325,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 null,
                 "Voc-upd-002",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         TransactionResponse updated = transactionService.updateTransaction(created.id(), updateReq);
         assertThat(updated.amount()).isEqualByComparingTo("600.00");
@@ -346,7 +346,7 @@ class TransactionServiceTest {
                 null,
                 null,
                 "Voc-upd-003",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
         assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("5000.00");
@@ -360,7 +360,7 @@ class TransactionServiceTest {
                 null,
                 null,
                 "Voc-upd-003",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         transactionService.updateTransaction(created.id(), updateReq);
         assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("7000.00");
@@ -380,7 +380,7 @@ class TransactionServiceTest {
                 null,
                 null,
                 "Voc-upd-topdown",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
 
@@ -394,7 +394,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 null,
                 "Voc-upd-topdown-exp",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         transactionService.recordTransaction(expenseReq, "admin@example.com", null, null, null);
         assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("1000.00");
@@ -408,7 +408,7 @@ class TransactionServiceTest {
                 null,
                 null,
                 "Voc-upd-topdown",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
 
         assertThatThrownBy(() -> transactionService.updateTransaction(created.id(), updateReq))
@@ -434,7 +434,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 null,
                 "Voc-upd-004",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
         assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("1700.00");
@@ -448,7 +448,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 null,
                 "Voc-upd-004",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         TransactionResponse updated = transactionService.updateTransaction(created.id(), updateReq);
         assertThat(updated.description()).isEqualTo("Description corrected only");
@@ -474,7 +474,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 null,
                 "Voc-upd-005",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
         assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("100.00");
@@ -488,7 +488,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 null,
                 "Voc-upd-005",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         assertThatThrownBy(() -> transactionService.updateTransaction(created.id(), updateReq))
                 .isInstanceOf(InsufficientBalanceException.class)
@@ -514,7 +514,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 null,
                 "Voc-time-001",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
         
@@ -534,7 +534,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 null,
                 "Voc-time-001",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         TransactionResponse updated = transactionService.updateTransaction(created.id(), updateReq);
         assertThat(updated.description()).isEqualTo("Recent transaction - Edited");
@@ -559,7 +559,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 null,
                 "Voc-time-002",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
         
@@ -579,7 +579,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 null,
                 "Voc-time-002",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
 
         assertThatThrownBy(() -> transactionService.updateTransaction(created.id(), updateReq))
@@ -606,7 +606,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 null,
                 "Voc-bulk-001",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         TransactionResponse tx1 = transactionService.recordTransaction(createReq1, "admin@example.com", null, null, null);
 
@@ -619,7 +619,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 null,
                 "Voc-bulk-002",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         TransactionResponse tx2 = transactionService.recordTransaction(createReq2, "admin@example.com", null, null, null);
 
@@ -673,7 +673,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 null,
                 "Voc-stats-1",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         transactionService.recordTransaction(createReq1, "admin@example.com", null, null, null);
 
@@ -688,7 +688,7 @@ class TransactionServiceTest {
                 testCategory.getId(),
                 null,
                 "Voc-stats-2",
-                "Freestone Infotech LLP"
+                "Freestone Technologies LLP"
         );
         transactionService.recordTransaction(createReq2, "admin@example.com", null, null, null);
 

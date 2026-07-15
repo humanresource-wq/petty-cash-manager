@@ -46,7 +46,7 @@ class AuthControllerTest {
     @DisplayName("POST /api/v1/auth/demo should authenticate valid seeded users")
     void loginDemoWithSeededUserSucceeds() throws Exception {
         // Priya is a seeded admin user in changes/002-core-entities.xml
-        User seededUser = userRepository.findByEmailIgnoreCase("priya@example.com").orElseThrow();
+        User seededUser = userRepository.findByEmailIgnoreCase("dolly.chheda@freestoneinfotech.com").orElseThrow();
 
         DemoLoginRequest request = new DemoLoginRequest(seededUser.getId());
 
@@ -55,7 +55,7 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").isNotEmpty())
-                .andExpect(jsonPath("$.user.email").value("priya@example.com"))
+                .andExpect(jsonPath("$.user.email").value("dolly.chheda@freestoneinfotech.com"))
                 .andExpect(jsonPath("$.user.role").value("ADMIN"));
     }
 

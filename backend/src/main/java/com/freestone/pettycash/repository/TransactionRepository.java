@@ -76,4 +76,32 @@ public interface TransactionRepository extends JpaRepository<PettyCashTransactio
             @Param("hasSearch") boolean hasSearch,
             Pageable pageable
     );
+
+    @Query("SELECT t FROM PettyCashTransaction t " +
+           "LEFT JOIN FETCH t.category c " +
+           "LEFT JOIN FETCH t.subcategory " +
+           "WHERE (:hasStartDate = false OR t.date >= :startDate) " +
+           "AND (:hasEndDate = false OR t.date <= :endDate) " +
+           "AND (:hasCompany = false OR t.company = :company) " +
+           "AND (:hasCategoryName = false OR LOWER(c.name) = LOWER(:categoryName)) " +
+           "AND (:hasType = false OR t.type = :type) " +
+           "AND (:hasSearch = false OR LOWER(t.description) LIKE :search " +
+           "OR LOWER(t.payee) LIKE :search " +
+           "OR LOWER(t.transactionNo) LIKE :search " +
+           "OR LOWER(t.payer) LIKE :search) " +
+           "ORDER BY t.date DESC, t.id DESC")
+    List<PettyCashTransaction> findFilteredList(
+            @Param("startDate") LocalDate startDate,
+            @Param("hasStartDate") boolean hasStartDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("hasEndDate") boolean hasEndDate,
+            @Param("company") String company,
+            @Param("hasCompany") boolean hasCompany,
+            @Param("categoryName") String categoryName,
+            @Param("hasCategoryName") boolean hasCategoryName,
+            @Param("type") TransactionType type,
+            @Param("hasType") boolean hasType,
+            @Param("search") String search,
+            @Param("hasSearch") boolean hasSearch
+    );
 }

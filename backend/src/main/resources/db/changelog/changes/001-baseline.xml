@@ -173,33 +173,33 @@
             <column name="version" valueNumeric="1"/>
         </insert>
 
-        <!-- Seed 4 allowed logins (2 Admins, 2 Users) -->
+        <!-- Seed 4 allowed logins (Admin role) -->
         <insert tableName="users">
-            <column name="id" value="google-sub-harsh"/>
-            <column name="email" value="harsh@example.com"/>
-            <column name="name" value="Harsh Kumar"/>
+            <column name="id" value="google-sub-dolly"/>
+            <column name="email" value="dolly.chheda@freestoneinfotech.com"/>
+            <column name="name" value="Dolly Chheda"/>
             <column name="role" value="ADMIN"/>
             <column name="status" value="ACTIVE"/>
         </insert>
         <insert tableName="users">
-            <column name="id" value="google-sub-priya"/>
-            <column name="email" value="priya@example.com"/>
-            <column name="name" value="Priya Sharma"/>
+            <column name="id" value="google-sub-genevieve"/>
+            <column name="email" value="genevieve.mascarenhas@freestoneinfotech.com"/>
+            <column name="name" value="Genevieve Mascarenhas"/>
+            <column name="role" value="ADMIN"/>
+            <column name="status" value="ACTIVE"/>
+        </insert>
+        <insert tableName="users">
+            <column name="id" value="google-sub-harshada"/>
+            <column name="email" value="harshada.surve@freestoneinfotech.com"/>
+            <column name="name" value="Harshada Surve"/>
             <column name="role" value="ADMIN"/>
             <column name="status" value="ACTIVE"/>
         </insert>
         <insert tableName="users">
             <column name="id" value="google-sub-tony"/>
-            <column name="email" value="tony@example.com"/>
-            <column name="name" value="Tony Stark"/>
-            <column name="role" value="USER"/>
-            <column name="status" value="ACTIVE"/>
-        </insert>
-        <insert tableName="users">
-            <column name="id" value="google-sub-employee"/>
-            <column name="email" value="employee@example.com"/>
-            <column name="name" value="Standard Employee"/>
-            <column name="role" value="USER"/>
+            <column name="email" value="tony.rajaiah@freestoneinfotech.com"/>
+            <column name="name" value="Tony Rajaiah"/>
+            <column name="role" value="ADMIN"/>
             <column name="status" value="ACTIVE"/>
         </insert>
 

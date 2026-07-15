@@ -164,5 +164,24 @@ export const api = {
     updateStatus: (id: string, status: UserStatus) =>
       client.put<UserResponse>(`/users/${id}/status`, null, { params: { status } }).then((r) => r.data),
   },
+  
+  reports: {
+    exportPdf: (params?: {
+      startDate?: string;
+      endDate?: string;
+      company?: string;
+      categoryName?: string;
+      type?: string;
+      search?: string;
+    }) => client.get('/reports/export/pdf', { params, responseType: 'blob' }).then((r) => r.data),
+    exportCsv: (params?: {
+      startDate?: string;
+      endDate?: string;
+      company?: string;
+      categoryName?: string;
+      type?: string;
+      search?: string;
+    }) => client.get('/reports/export/csv', { params, responseType: 'blob' }).then((r) => r.data),
+  },
 };
 export default api;
