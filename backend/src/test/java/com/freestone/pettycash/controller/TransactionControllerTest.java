@@ -59,7 +59,7 @@ class TransactionControllerTest {
 
     @Test
     @DisplayName("POST /api/v1/transactions with amount exceeding cashbox balance should return 400 Bad Request")
-    @WithUserDetails("google-sub-harsh")
+    @WithUserDetails("google-sub-harshada")
     void createExpenseExceedingBalanceReturns400() throws Exception {
         // Setup cashbox to 100.00
         CashBox box = cashBoxRepository.findById(1L).orElseThrow();
@@ -94,7 +94,7 @@ class TransactionControllerTest {
 
     @Test
     @DisplayName("PUT /api/v1/transactions/{id} with amount exceeding cashbox balance should return 400 Bad Request")
-    @WithUserDetails("google-sub-harsh")
+    @WithUserDetails("google-sub-harshada")
     void updateExpenseExceedingBalanceReturns400() throws Exception {
         // Setup cashbox to 500.00
         CashBox box = cashBoxRepository.findById(1L).orElseThrow();
@@ -113,7 +113,7 @@ class TransactionControllerTest {
                 "VCH-CONT-002",
                 "Freestone Technologies LLP"
         );
-        TransactionResponse created = transactionService.recordTransaction(createReq, "google-sub-harsh", null, null, null);
+        TransactionResponse created = transactionService.recordTransaction(createReq, "google-sub-harshada", null, null, null);
 
         // Attempt update to 1000.00 (restores 100.00 to cashbox balance -> 500.00, but 1000.00 > 500.00)
         TransactionUpdateRequest updateRequest = new TransactionUpdateRequest(
@@ -136,7 +136,7 @@ class TransactionControllerTest {
 
     @Test
     @DisplayName("GET /api/v1/transactions/export/vouchers should return 200 OK and ZIP archive")
-    @WithUserDetails("google-sub-harsh")
+    @WithUserDetails("google-sub-harshada")
     void exportVouchersReturnsZip() throws Exception {
         // Setup cashbox
         CashBox box = cashBoxRepository.findById(1L).orElseThrow();
@@ -155,7 +155,7 @@ class TransactionControllerTest {
                 "VCH-CONT-BULK",
                 "Freestone Technologies LLP"
         );
-        transactionService.recordTransaction(createReq, "google-sub-harsh", null, null, null);
+        transactionService.recordTransaction(createReq, "google-sub-harshada", null, null, null);
 
         mockMvc.perform(get("/api/v1/transactions/export/vouchers")
                         .param("startDate", LocalDate.now().toString())
@@ -171,7 +171,7 @@ class TransactionControllerTest {
 
     @Test
     @DisplayName("GET /api/v1/transactions/export/vouchers with no matching records returns 400 Bad Request")
-    @WithUserDetails("google-sub-harsh")
+    @WithUserDetails("google-sub-harshada")
     void exportVouchersWithNoMatchReturns400() throws Exception {
         LocalDate farFuture = LocalDate.now().plusYears(10);
         mockMvc.perform(get("/api/v1/transactions/export/vouchers")

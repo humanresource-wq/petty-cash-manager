@@ -26,7 +26,7 @@ class ReportControllerTest {
 
     @Test
     @DisplayName("GET /api/v1/reports/export/pdf with authenticated user should return 200 OK and PDF attachment")
-    @WithUserDetails("google-sub-harsh")
+    @WithUserDetails("google-sub-harshada")
     void exportPdfReturns200AndPdf() throws Exception {
         mockMvc.perform(get("/api/v1/reports/export/pdf")
                         .param("company", "Freestone Technologies LLP")
@@ -40,7 +40,7 @@ class ReportControllerTest {
 
     @Test
     @DisplayName("GET /api/v1/reports/export/csv with authenticated user should return 200 OK and CSV attachment")
-    @WithUserDetails("google-sub-harsh")
+    @WithUserDetails("google-sub-harshada")
     void exportCsvReturns200AndCsv() throws Exception {
         mockMvc.perform(get("/api/v1/reports/export/csv")
                         .param("categoryName", "Stationery")

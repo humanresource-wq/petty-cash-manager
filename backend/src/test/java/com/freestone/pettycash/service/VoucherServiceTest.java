@@ -31,7 +31,7 @@ class VoucherServiceTest {
                 BigDecimal.valueOf(150.00),
                 "Auto ride to client office",
                 LocalDate.now(),
-                "harsh@example.com",
+                "harshada.surve@freestoneinfotech.com",
                 "Local Driver",
                 category,
                 subcategory
