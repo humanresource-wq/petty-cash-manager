@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../api/client';
 import type {
   TransactionResponse,
@@ -100,6 +100,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
   const [filterStartDate, setFilterStartDate] = useState<string>('');
   const [filterEndDate, setFilterEndDate] = useState<string>('');
   const [datePeriod, setDatePeriod] = useState<string>('all');
+
+  // Export dropdown
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+  const exportDropdownRef = useRef<HTMLDivElement>(null);
+
+  const closeExportDropdown = useCallback((e: MouseEvent) => {
+    if (exportDropdownRef.current && !exportDropdownRef.current.contains(e.target as Node)) {
+      setExportDropdownOpen(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (exportDropdownOpen) {
+      document.addEventListener('mousedown', closeExportDropdown);
+    }
+    return () => document.removeEventListener('mousedown', closeExportDropdown);
+  }, [exportDropdownOpen, closeExportDropdown]);
 
   // Pagination for Transactions Ledger
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -940,48 +957,95 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                     </button>
                   )}
 
-                  {/* Export Buttons */}
-                  <div className="flex gap-2 shrink-0 ml-auto flex-wrap justify-end">
+                  {/* Export Dropdown */}
+                  <div className="relative shrink-0 ml-auto" ref={exportDropdownRef}>
                     <button
                       type="button"
-                      onClick={() => handleExport('csv')}
-                      className="bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-350 hover:text-white font-bold text-xs py-2 px-3 rounded-lg flex items-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
-                      title="Download spreadsheet CSV"
+                      onClick={() => setExportDropdownOpen(prev => !prev)}
+                      className={`flex items-center gap-2 font-bold text-xs py-2 px-4 rounded-lg transition active:scale-[0.98] cursor-pointer border ${
+                        exportDropdownOpen
+                          ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20'
+                          : 'bg-slate-950 border-slate-800 hover:border-indigo-500/50 text-slate-300 hover:text-white'
+                      }`}
                     >
-                      📊 Export CSV
+                      <span>⬇</span>
+                      <span>Export & Download</span>
+                      <svg
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${exportDropdownOpen ? 'rotate-180' : ''}`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handleExport('pdf')}
-                      className="bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-350 hover:text-white font-bold text-xs py-2 px-3 rounded-lg flex items-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
-                      title="Download summary statement PDF"
-                    >
-                      📄 Export PDF Summary
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleExport('custom_csv')}
-                      className="bg-slate-950 border border-indigo-950 hover:border-indigo-800/80 text-indigo-400 hover:text-indigo-300 font-bold text-xs py-2 px-3 rounded-lg flex items-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
-                      title="Download custom company/monthly grouped CSV report"
-                    >
-                      📈 Grouped CSV Report
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleExport('custom_pdf')}
-                      className="bg-slate-950 border border-indigo-950 hover:border-indigo-800/80 text-indigo-400 hover:text-indigo-300 font-bold text-xs py-2 px-3 rounded-lg flex items-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
-                      title="Download custom company/monthly grouped PDF statement"
-                    >
-                      📋 Grouped PDF Report
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleExport('bulk_vouchers')}
-                      className="bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-350 hover:text-white font-bold text-xs py-2 px-3 rounded-lg flex items-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
-                      title="Download matching transaction vouchers as ZIP archive"
-                    >
-                      📦 Download Vouchers (ZIP)
-                    </button>
+
+                    {exportDropdownOpen && (
+                      <div className="absolute right-0 top-full mt-2 w-72 bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden animate-[pop_0.12s_ease]">
+                        {/* Group 1: Transaction List */}
+                        <div className="px-3 pt-3 pb-1">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
+                            <span>📋</span> Transaction List
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => { handleExport('csv'); setExportDropdownOpen(false); }}
+                            className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:bg-indigo-600/15 hover:text-white transition flex items-center gap-2 cursor-pointer"
+                            title="Download all filtered transactions as a CSV spreadsheet"
+                          >
+                            <span className="text-emerald-400 text-sm">📊</span> Download as CSV
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { handleExport('pdf'); setExportDropdownOpen(false); }}
+                            className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:bg-indigo-600/15 hover:text-white transition flex items-center gap-2 cursor-pointer"
+                            title="Download all filtered transactions as a PDF document"
+                          >
+                            <span className="text-red-400 text-sm">📄</span> Download as PDF
+                          </button>
+                        </div>
+
+                        <div className="mx-3 border-t border-slate-800" />
+
+                        {/* Group 2: Summary Report */}
+                        <div className="px-3 pt-2 pb-1">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
+                            <span>📊</span> Summary Report (by Company & Month)
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => { handleExport('custom_csv'); setExportDropdownOpen(false); }}
+                            className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:bg-indigo-600/15 hover:text-white transition flex items-center gap-2 cursor-pointer"
+                            title="Download a summarized report grouped by company and month as CSV"
+                          >
+                            <span className="text-emerald-400 text-sm">📈</span> Download as CSV
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { handleExport('custom_pdf'); setExportDropdownOpen(false); }}
+                            className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:bg-indigo-600/15 hover:text-white transition flex items-center gap-2 cursor-pointer"
+                            title="Download a summarized report grouped by company and month as PDF"
+                          >
+                            <span className="text-red-400 text-sm">📋</span> Download as PDF
+                          </button>
+                        </div>
+
+                        <div className="mx-3 border-t border-slate-800" />
+
+                        {/* Group 3: Vouchers */}
+                        <div className="px-3 pt-2 pb-3">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
+                            <span>🧾</span> Vouchers
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => { handleExport('bulk_vouchers'); setExportDropdownOpen(false); }}
+                            className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:bg-indigo-600/15 hover:text-white transition flex items-center gap-2 cursor-pointer"
+                            title="Download matching transaction vouchers as a ZIP archive"
+                          >
+                            <span className="text-amber-400 text-sm">📦</span> Download All as ZIP
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
