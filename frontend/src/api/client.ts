@@ -67,6 +67,8 @@ export const api = {
       type?: string;
       categoryName?: string;
       search?: string;
+      sortBy?: string;
+      sortDir?: string;
     }) => client.get<Page<TransactionResponse>>('/transactions', { params }).then((r) => r.data),
     record: (formData: FormData) =>
       client.post<TransactionResponse>('/transactions', formData, {

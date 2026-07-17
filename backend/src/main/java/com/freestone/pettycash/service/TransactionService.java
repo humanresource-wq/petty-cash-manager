@@ -511,12 +511,17 @@ public class TransactionService {
             LocalDate endDate,
             TransactionType type,
             String categoryName,
-            String search
+            String search,
+            String sortBy,
+            String sortDir
     ) {
-        log.info("getPaginatedTransactions: page={}, size={}, startDate={}, endDate={}, type={}, categoryName={}, search='{}'",
-                page, size, startDate, endDate, type, categoryName, search != null ? search : "");
+        log.info("getPaginatedTransactions: page={}, size={}, startDate={}, endDate={}, type={}, categoryName={}, search='{}', sortBy={}, sortDir={}",
+                page, size, startDate, endDate, type, categoryName, search != null ? search : "", sortBy, sortDir);
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "date", "id"));
+        Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        String sortProperty = "date".equalsIgnoreCase(sortBy) ? "date" : "timestamp";
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortProperty, "id"));
         
         String searchParam = (search == null || search.isBlank()) ? null : "%" + search.trim().toLowerCase() + "%";
         String categoryParam = (categoryName == null || categoryName.isBlank()) ? null : categoryName.trim().toLowerCase();

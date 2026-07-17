@@ -45,10 +45,12 @@ public class TransactionController {
             @RequestParam(required = false) LocalDate endDate,
             @RequestParam(required = false) TransactionType type,
             @RequestParam(required = false) String categoryName,
-            @RequestParam(required = false) String search
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "timestamp") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
     ) {
         Page<TransactionResponse> result = transactionService.getPaginatedTransactions(
-                page, size, startDate, endDate, type, categoryName, search);
+                page, size, startDate, endDate, type, categoryName, search, sortBy, sortDir);
         return ResponseEntity.ok(result);
     }
 

@@ -58,6 +58,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
     }
   };
 
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return '—';
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
   // Derive the correct MIME type from the receipt filename extension
   const getMimeType = (filename: string): string => {
     const ext = filename.split('.').pop()?.toLowerCase() ?? '';
@@ -100,6 +118,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
   const [filterStartDate, setFilterStartDate] = useState<string>('');
   const [filterEndDate, setFilterEndDate] = useState<string>('');
   const [datePeriod, setDatePeriod] = useState<string>('all');
+
+  // Sort parameters (defaulting to timestamp DESC as requested)
+  const [sortBy, setSortBy] = useState<string>('timestamp');
+  const [sortDir, setSortDir] = useState<string>('desc');
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortDir('desc');
+    }
+  };
+
+  const renderSortIcon = (field: string) => {
+    if (sortBy !== field) {
+      return <span className="text-slate-600 ml-1 select-none">↕</span>;
+    }
+    return sortDir === 'asc' ? <span className="text-indigo-400 ml-1 select-none">▲</span> : <span className="text-indigo-400 ml-1 select-none">▼</span>;
+  };
 
   // Export dropdown
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
@@ -197,6 +235,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
         type: filterType || undefined,
         categoryName: filterCategory || undefined,
         search: searchQuery || undefined,
+        sortBy,
+        sortDir,
       });
       setTransactions(pageData.content);
       setTotalElements(pageData.totalElements);
@@ -258,7 +298,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
       setLoading(false);
     };
     loadFilteredData();
-  }, [currentPage, searchQuery, filterType, filterCategory, filterStartDate, filterEndDate]);
+  }, [currentPage, searchQuery, filterType, filterCategory, filterStartDate, filterEndDate, sortBy, sortDir]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -1056,7 +1096,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
                         <tr className="bg-slate-950 border-b border-slate-800 text-slate-400">
-                          <th className="p-3 font-semibold uppercase tracking-wider">Date & Time</th>
+                          <th 
+                            onClick={() => handleSort('date')}
+                            className="p-3 font-semibold uppercase tracking-wider cursor-pointer hover:text-white transition select-none"
+                            title="Click to sort by Transaction Date"
+                          >
+                            Date {renderSortIcon('date')}
+                          </th>
+                          <th 
+                            onClick={() => handleSort('timestamp')}
+                            className="p-3 font-semibold uppercase tracking-wider cursor-pointer hover:text-white transition select-none"
+                            title="Click to sort by Audit Time"
+                          >
+                            Recorded On {renderSortIcon('timestamp')}
+                          </th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Tx No</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Voucher No</th>
                           <th className="p-3 font-semibold uppercase tracking-wider">Company</th>
@@ -1074,7 +1127,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                       <tbody>
                         {getPaginatedTransactions().map((t) => (
                           <tr key={t.id} className="border-b border-slate-900 hover:bg-slate-900/30">
-                            <td className="p-3 text-slate-300 font-medium whitespace-nowrap">{formatDateTime(t.timestamp)}</td>
+                            <td className="p-3 text-slate-300 font-medium whitespace-nowrap">
+                              {formatDate(t.date)}
+                            </td>
+                            <td className="p-3 text-slate-400 font-medium whitespace-nowrap">
+                              {formatDateTime(t.timestamp)}
+                            </td>
                             <td className="p-3 text-slate-400 font-mono">{t.transactionNo}</td>
                             <td className="p-3 text-slate-400 font-mono">{t.voucherNumber}</td>
                             <td className="p-3">
@@ -1147,7 +1205,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                         ))}
                         {getFilteredTransactions().length === 0 && (
                           <tr>
-                            <td colSpan={8} className="p-8 text-center text-slate-500 text-xs font-semibold">
+                            <td colSpan={12} className="p-8 text-center text-slate-500 text-xs font-semibold">
                               🗂️ No matching transactions found in database directory.
                             </td>
                           </tr>
