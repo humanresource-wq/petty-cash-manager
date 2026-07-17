@@ -146,15 +146,28 @@ public class GoogleDriveService {
 
     /**
      * Uploads a file inside a specific transaction folder.
+     * When {@code categoryFolder} is provided the hierarchy becomes:
+     *   petty-cash-receipts / categoryFolder / transactionNo / filename
+     * Otherwise falls back to:
+     *   petty-cash-receipts / transactionNo / filename
      */
-    public String uploadFile(String transactionNo, String filename, byte[] fileBytes, String mimeType) throws IOException {
+    public String uploadFile(String categoryFolder, String transactionNo, String filename, byte[] fileBytes, String mimeType) throws IOException {
         if (driveService == null) {
             log.info("Google Drive not configured. Mocking file upload: {}", filename);
             return "mock-file-id-" + System.currentTimeMillis();
         }
 
-        // Get or create folder for this specific transaction inside our root receipts folder
-        String folderId = getOrCreateFolder(transactionNo, pettyCashReceiptsFolderId != null ? pettyCashReceiptsFolderId : parentFolderId);
+        // Determine root folder to place the transaction folder under
+        String rootFolderId = pettyCashReceiptsFolderId != null ? pettyCashReceiptsFolderId : parentFolderId;
+        String parentForTx;
+        if (categoryFolder != null && !categoryFolder.isBlank()) {
+            parentForTx = getOrCreateFolder(categoryFolder, rootFolderId);
+        } else {
+            parentForTx = rootFolderId;
+        }
+
+        // Get or create folder for this specific transaction
+        String folderId = getOrCreateFolder(transactionNo, parentForTx);
 
         File fileMetadata = new File();
         fileMetadata.setName(filename);
@@ -168,6 +181,13 @@ public class GoogleDriveService {
                 .execute();
 
         return uploadedFile.getId();
+    }
+
+    /**
+     * Overload for backward compatibility — no category folder grouping.
+     */
+    public String uploadFile(String transactionNo, String filename, byte[] fileBytes, String mimeType) throws IOException {
+        return uploadFile(null, transactionNo, filename, fileBytes, mimeType);
     }
 
     /**
