@@ -289,11 +289,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
     }
   };
 
-  const handleDownloadVoucher = async (txId: number, txNo: string) => {
+  const handleDownloadVoucher = async (txId: number, txNo: string, voucherNo: string) => {
     try {
       showToast('📄 Generating A5 landscape voucher...');
       const blob = await api.transactions.downloadVoucher(txId);
-      triggerDownload(blob, `voucher-${txNo}.pdf`);
+      const safeVoucherNo = (voucherNo || 'TOPUP').replace(/[^a-zA-Z0-9\-_]/g, '_');
+      triggerDownload(blob, `${safeVoucherNo}-${txNo}.pdf`);
       showToast('✅ Voucher PDF downloaded!');
       fetchInitialData(); // refresh list to load voucherFileId
     } catch (err) {
@@ -1106,7 +1107,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                             </td>
                             <td className="p-3">
                               <button
-                                onClick={() => handleDownloadVoucher(t.id, t.transactionNo)}
+                                onClick={() => handleDownloadVoucher(t.id, t.transactionNo, t.voucherNumber)}
                                 className={`text-[10px] font-bold px-2 py-0.5 rounded border transition ${
                                   t.voucherFileId
                                     ? 'bg-indigo-950 text-indigo-400 border-indigo-900 hover:bg-indigo-900/30'

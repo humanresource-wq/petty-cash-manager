@@ -54,14 +54,27 @@ public class TransactionService {
         Subcategory subcategory = null;
 
         // 2. Perform business validation
-        if (request.voucherNumber() == null || request.voucherNumber().trim().isBlank()) {
-            throw new IllegalArgumentException("Voucher number must not be blank");
-        }
         if (request.company() == null || request.company().trim().isBlank()) {
             throw new IllegalArgumentException("Company must not be blank");
         }
-        if (transactionRepository.existsByVoucherNumberAndDate(request.voucherNumber().trim(), request.date())) {
-            throw new IllegalArgumentException("Voucher number '" + request.voucherNumber().trim() + "' is already registered on " + request.date());
+
+        // Resolve voucher number: required for EXPENSE, auto-generated for TOPUP
+        String resolvedVoucherNumber;
+        if (request.type() == TransactionType.TOPUP) {
+            resolvedVoucherNumber = (request.voucherNumber() != null && !request.voucherNumber().trim().isBlank())
+                    ? request.voucherNumber().trim()
+                    : "TOPUP-" + java.time.format.DateTimeFormatter
+                            .ofPattern("yyyyMMdd-HHmmssSSS")
+                            .format(java.time.LocalDateTime.now());
+        } else {
+            if (request.voucherNumber() == null || request.voucherNumber().trim().isBlank()) {
+                throw new IllegalArgumentException("Voucher number must not be blank");
+            }
+            resolvedVoucherNumber = request.voucherNumber().trim();
+        }
+
+        if (transactionRepository.existsByVoucherNumberAndDate(resolvedVoucherNumber, request.date())) {
+            throw new IllegalArgumentException("Voucher number '" + resolvedVoucherNumber + "' is already registered on " + request.date());
         }
 
         if (request.type() == TransactionType.EXPENSE) {
@@ -108,7 +121,7 @@ public class TransactionService {
                 category,
                 subcategory
         );
-        transaction.setVoucherNumber(request.voucherNumber().trim());
+        transaction.setVoucherNumber(resolvedVoucherNumber);
         transaction.setCompany(request.company().trim());
 
         // Save first to get the database id
@@ -123,7 +136,8 @@ public class TransactionService {
         if (fileBytes != null && fileBytes.length > 0) {
             String safeFilename = filename != null && !filename.isBlank() ? filename : "receipt.bin";
             String safeMimeType = mimeType != null && !mimeType.isBlank() ? mimeType : "application/octet-stream";
-            String fileId = googleDriveService.uploadFile(transactionNo, safeFilename, fileBytes, safeMimeType);
+            String categoryFolder = getCategoryFolderName(transaction);
+            String fileId = googleDriveService.uploadFile(categoryFolder, transactionNo, safeFilename, fileBytes, safeMimeType);
             transaction.setReceiptFileId(fileId);
             transaction.setReceiptName(safeFilename);
             transaction.setReceiptStatus(ReceiptStatus.RECEIVED);
@@ -160,7 +174,8 @@ public class TransactionService {
         }
 
         // Upload to Google Drive folder for this transaction
-        String fileId = googleDriveService.uploadFile(transaction.getTransactionNo(), filename, fileBytes, mimeType);
+        String categoryFolder = getCategoryFolderName(transaction);
+        String fileId = googleDriveService.uploadFile(categoryFolder, transaction.getTransactionNo(), filename, fileBytes, mimeType);
 
         // Update database
         transaction.setReceiptFileId(fileId);
@@ -199,9 +214,15 @@ public class TransactionService {
         // Generate voucher PDF bytes
         byte[] pdfBytes = voucherService.generateTransactionVoucher(transaction);
 
+        // Build category-month folder name for Google Drive (Option B hierarchy)
+        String categoryFolder = getCategoryFolderName(transaction);
+
         // Upload to Google Drive and save fileId in DB
-        String filename = "voucher-" + transaction.getTransactionNo() + ".pdf";
+        // Build filename: sanitize voucher number for safe filesystem use, then append TX no
+        String safeVoucherNo = transaction.getVoucherNumber().replaceAll("[^a-zA-Z0-9\\-_]", "_");
+        String filename = safeVoucherNo + "-" + transaction.getTransactionNo() + ".pdf";
         String fileId = googleDriveService.uploadFile(
+                categoryFolder,
                 transaction.getTransactionNo(),
                 filename,
                 pdfBytes,
@@ -213,6 +234,17 @@ public class TransactionService {
         log.info("Generated and saved PDF voucher (id: {}) for transaction {}", fileId, transaction.getTransactionNo());
 
         return pdfBytes;
+    }
+
+    /**
+     * Returns the download filename for a voucher in the format:
+     * sanitizedVoucherNumber-transactionNo.pdf
+     */
+    public String getVoucherFilename(Long transactionId) {
+        PettyCashTransaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction", "id", transactionId));
+        String safeVoucherNo = transaction.getVoucherNumber().replaceAll("[^a-zA-Z0-9\\-_]", "_");
+        return safeVoucherNo + "-" + transaction.getTransactionNo() + ".pdf";
     }
 
     @Transactional
@@ -462,7 +494,8 @@ public class TransactionService {
         try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(baos)) {
             for (PettyCashTransaction tx : list) {
                 byte[] pdfBytes = voucherService.generateTransactionVoucher(tx);
-                java.util.zip.ZipEntry entry = new java.util.zip.ZipEntry("voucher-" + tx.getTransactionNo() + ".pdf");
+                String safeVoucherNo = tx.getVoucherNumber().replaceAll("[^a-zA-Z0-9\\-_]", "_");
+                java.util.zip.ZipEntry entry = new java.util.zip.ZipEntry(safeVoucherNo + "-" + tx.getTransactionNo() + ".pdf");
                 zos.putNextEntry(entry);
                 zos.write(pdfBytes);
                 zos.closeEntry();
@@ -505,5 +538,15 @@ public class TransactionService {
                 entityPage.getTotalElements(), entityPage.getTotalPages(), entityPage.getNumberOfElements());
 
         return entityPage.map(mapper::toResponse);
+    }
+
+    private String getCategoryFolderName(PettyCashTransaction transaction) {
+        String categoryName = (transaction.getCategory() != null)
+                ? transaction.getCategory().getName()
+                : (transaction.getType() == TransactionType.TOPUP ? "Top-up" : "Uncategorized");
+        String monthYear = java.time.format.DateTimeFormatter
+                .ofPattern("MMM yyyy")
+                .format(transaction.getDate());
+        return categoryName + " - " + monthYear;
     }
 }

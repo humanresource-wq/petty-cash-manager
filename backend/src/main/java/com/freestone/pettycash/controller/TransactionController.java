@@ -167,10 +167,11 @@ public class TransactionController {
     @GetMapping("/{id}/voucher")
     public ResponseEntity<byte[]> downloadVoucher(@PathVariable Long id) throws IOException {
         byte[] bytes = transactionService.getOrGenerateVoucher(id);
+        String downloadFilename = transactionService.getVoucherFilename(id);
 
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"voucher-" + id + ".pdf\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + downloadFilename + "\"")
                 .body(bytes);
     }
 

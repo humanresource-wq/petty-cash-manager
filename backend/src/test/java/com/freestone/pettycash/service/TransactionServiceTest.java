@@ -638,8 +638,8 @@ class TransactionServiceTest {
 
         assertThat(fileNames).hasSize(2);
         assertThat(fileNames).containsExactlyInAnyOrder(
-                "voucher-" + tx1.transactionNo() + ".pdf",
-                "voucher-" + tx2.transactionNo() + ".pdf"
+                "Voc-bulk-001-" + tx1.transactionNo() + ".pdf",
+                "Voc-bulk-002-" + tx2.transactionNo() + ".pdf"
         );
     }
 
@@ -701,5 +701,37 @@ class TransactionServiceTest {
         DashboardStatsResponse statsPast = transactionService.getDashboardStats(pastDate, pastDate);
         assertThat(statsPast.currentMonthSpent()).isEqualByComparingTo(BigDecimal.valueOf(500.00));
         assertThat(statsPast.currentMonthSpentCount()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("getOrGenerateVoucher should generate voucher and set mock Google Drive ID")
+    @Transactional
+    void getOrGenerateVoucherUploadsToMockDrive() throws Exception {
+        // Setup balance
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(5000.00));
+        cashBoxRepository.save(box);
+
+        // Record a transaction
+        TransactionRequest request = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(100.00),
+                "Test Expense",
+                LocalDate.now(),
+                "Vendor",
+                testCategory.getId(),
+                null,
+                "Voc-drive-001",
+                "Freestone Technologies LLP"
+        );
+        TransactionResponse response = transactionService.recordTransaction(request, "admin@example.com", null, null, null);
+
+        // Generate voucher
+        byte[] pdfBytes = transactionService.getOrGenerateVoucher(response.id());
+        assertThat(pdfBytes).isNotEmpty();
+
+        // Verify that the voucherFileId was saved on the transaction and contains "mock-file-id"
+        PettyCashTransaction savedTx = entityManager.find(PettyCashTransaction.class, response.id());
+        assertThat(savedTx.getVoucherFileId()).startsWith("mock-file-id-");
     }
 }

@@ -145,3 +145,42 @@
   20%, 60% { transform: translateX(-4px); }
   40%, 80% { transform: translateX(4px); }
 }
+
+/* =====================================================
+   Dark-mode date / time input fix
+   Forces the browser calendar icon and native picker
+   to render in a dark colour scheme so they are visible
+   against dark backgrounds.
+   ===================================================== */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"] {
+  color-scheme: dark !important;
+}
+
+/* Make the calendar / clock icon white in webkit browsers */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.8) !important;
+  cursor: pointer !important;
+  opacity: 0.85 !important;
+  padding: 2px !important;
+  border-radius: 4px !important;
+  transition: opacity 0.15s ease !important;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover,
+input[type="month"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1 !important;
+}
+
+/* Utility to hide native datepicker calendar icon when using custom SVG overlays */
+.hide-native-datepicker::-webkit-calendar-picker-indicator {
+  display: none !important;
+  -webkit-appearance: none !important;
+}

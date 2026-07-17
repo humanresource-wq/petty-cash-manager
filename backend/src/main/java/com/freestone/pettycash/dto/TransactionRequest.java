@@ -28,7 +28,6 @@ public record TransactionRequest(
 
         Long subcategoryId, // Optional
 
-        @NotBlank(message = "Voucher number must not be blank")
         String voucherNumber,
 
         @NotBlank(message = "Company must not be blank")
