@@ -89,7 +89,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       if (currentUser.role === 'USER') {
         setTxType('EXPENSE');
       } else {
-        setTxType(defaultType || 'EXPENSE');
+        const resolvedType = defaultType || 'EXPENSE';
+        setTxType(resolvedType);
+        // Clear voucher number when switching to TOPUP
+        if (resolvedType === 'TOPUP') setVoucherNumber('');
       }
     }
   }, [isOpen, currentUser, defaultType]);
@@ -166,7 +169,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setError('Select a valid transaction date.');
       return;
     }
-    if (!voucherNumber.trim()) {
+    if (txType === 'EXPENSE' && !voucherNumber.trim()) {
       setError('Voucher number must not be blank.');
       return;
     }
@@ -311,31 +314,39 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                 Transaction Date
               </label>
-              <input
-                type="date"
-                required
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-indigo-500"
-              />
+              <div className="relative flex items-center">
+                <input
+                  type="date"
+                  required
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker(); } catch {} }}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 pl-3 pr-10 text-sm text-white focus:outline-none focus:border-indigo-500 cursor-pointer hide-native-datepicker"
+                />
+                <svg className="w-4 h-4 text-indigo-400 absolute right-3 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
             </div>
           </div>
 
-          {/* Voucher Number & Company */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-bold">
-                Voucher Number
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Voc-001-09-12-2026"
-                value={voucherNumber}
-                onChange={(e) => setVoucherNumber(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-indigo-500"
-              />
-            </div>
+          {/* Voucher Number & Company — Voucher shown only for Expense */}
+          <div className={`grid gap-4 ${txType === 'EXPENSE' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {txType === 'EXPENSE' && (
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-bold">
+                  Voucher Number
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Voc-001-09-12-2026"
+                  value={voucherNumber}
+                  onChange={(e) => setVoucherNumber(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            )}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-bold">
                 Company

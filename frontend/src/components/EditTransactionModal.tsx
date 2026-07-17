@@ -199,14 +199,19 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                   Date <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker(); } catch {} }}
-                  required
-                  className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg py-2.5 px-3 text-sm text-white focus:outline-none transition cursor-pointer"
-                />
+                <div className="relative flex items-center">
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    onClick={(e) => { try { (e.currentTarget as HTMLInputElement).showPicker(); } catch {} }}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg py-2.5 pl-3 pr-10 text-sm text-white focus:outline-none transition cursor-pointer hide-native-datepicker"
+                  />
+                  <svg className="w-4 h-4 text-indigo-400 absolute right-3 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
               </div>
             </div>
 
