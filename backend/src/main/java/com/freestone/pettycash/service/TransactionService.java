@@ -58,7 +58,7 @@ public class TransactionService {
             throw new IllegalArgumentException("Company must not be blank");
         }
 
-        // Resolve voucher number: required for EXPENSE, auto-generated for TOPUP
+        // Resolve voucher number: optional for EXPENSE, auto-generated for TOPUP
         String resolvedVoucherNumber;
         if (request.type() == TransactionType.TOPUP) {
             resolvedVoucherNumber = (request.voucherNumber() != null && !request.voucherNumber().trim().isBlank())
@@ -67,13 +67,13 @@ public class TransactionService {
                             .ofPattern("yyyyMMdd-HHmmssSSS")
                             .format(java.time.LocalDateTime.now());
         } else {
-            if (request.voucherNumber() == null || request.voucherNumber().trim().isBlank()) {
-                throw new IllegalArgumentException("Voucher number must not be blank");
-            }
-            resolvedVoucherNumber = request.voucherNumber().trim();
+            // Voucher number is optional for expenses — can be assigned later
+            resolvedVoucherNumber = (request.voucherNumber() != null && !request.voucherNumber().trim().isBlank())
+                    ? request.voucherNumber().trim()
+                    : null;
         }
 
-        if (transactionRepository.existsByVoucherNumberAndDate(resolvedVoucherNumber, request.date())) {
+        if (resolvedVoucherNumber != null && transactionRepository.existsByVoucherNumberAndDate(resolvedVoucherNumber, request.date())) {
             throw new IllegalArgumentException("Voucher number '" + resolvedVoucherNumber + "' is already registered on " + request.date());
         }
 
@@ -204,6 +204,11 @@ public class TransactionService {
         PettyCashTransaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction", "id", transactionId));
 
+        // Block voucher generation if voucher number is not assigned
+        if (transaction.getVoucherNumber() == null || transaction.getVoucherNumber().isBlank()) {
+            throw new IllegalArgumentException("Voucher number must be assigned before downloading the voucher.");
+        }
+
         // If already uploaded and saved in Google Drive, download it
         if (transaction.getVoucherFileId() != null && !transaction.getVoucherFileId().isBlank()) {
             if (!transaction.getVoucherFileId().startsWith("mock-file-id-")) {
@@ -309,8 +314,25 @@ public class TransactionService {
         transaction.setDescription(request.description());
         transaction.setDate(request.date());
         transaction.setPayee(request.payee());
-        transaction.setVoucherNumber(request.voucherNumber().trim());
         transaction.setCompany(request.company().trim());
+
+        // Handle voucher number update — clear cached voucher PDF if number changed
+        String oldVoucherNumber = transaction.getVoucherNumber();
+        String newVoucherNumber = (request.voucherNumber() != null && !request.voucherNumber().isBlank())
+                ? request.voucherNumber().trim()
+                : null;
+        boolean voucherChanged = (oldVoucherNumber == null && newVoucherNumber != null)
+                || (oldVoucherNumber != null && !oldVoucherNumber.equals(newVoucherNumber));
+
+        if (newVoucherNumber != null && voucherChanged
+                && transactionRepository.existsByVoucherNumberAndDate(newVoucherNumber, request.date())) {
+            throw new IllegalArgumentException("Voucher number '" + newVoucherNumber + "' is already registered on " + request.date());
+        }
+
+        transaction.setVoucherNumber(newVoucherNumber);
+        if (voucherChanged) {
+            transaction.setVoucherFileId(null); // Force regeneration on next download
+        }
 
         // Update category / subcategory (only for EXPENSE)
         if (transaction.getType() == TransactionType.EXPENSE) {
@@ -338,6 +360,33 @@ public class TransactionService {
                 transaction.getTransactionNo(), transaction.getType(), oldAmount, newAmount);
 
         return mapper.toResponse(transaction);
+    }
+
+    @Transactional
+    public TransactionResponse updateTransactionWithReceipt(Long id, TransactionUpdateRequest request,
+                                                             byte[] fileBytes, String filename, String mimeType) throws IOException {
+        // Delegate core update logic
+        TransactionResponse response = updateTransaction(id, request);
+
+        // Handle optional receipt file upload
+        if (fileBytes != null && fileBytes.length > 0) {
+            PettyCashTransaction transaction = transactionRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Transaction", "id", id));
+
+            String safeFilename = filename != null && !filename.isBlank() ? filename : "receipt.bin";
+            String safeMimeType = mimeType != null && !mimeType.isBlank() ? mimeType : "application/octet-stream";
+            String categoryFolder = getCategoryFolderName(transaction);
+            String fileId = googleDriveService.uploadFile(categoryFolder, transaction.getTransactionNo(), safeFilename, fileBytes, safeMimeType);
+            transaction.setReceiptFileId(fileId);
+            transaction.setReceiptName(safeFilename);
+            transaction.setReceiptStatus(ReceiptStatus.RECEIVED);
+
+            transaction = transactionRepository.save(transaction);
+            log.info("Updated receipt (id: {}) for transaction {}", fileId, transaction.getTransactionNo());
+            return mapper.toResponse(transaction);
+        }
+
+        return response;
     }
 
     public CashBoxResponse getCashBoxDetails() {
@@ -485,9 +534,15 @@ public class TransactionService {
     }
 
     public byte[] exportVouchersZip(LocalDate startDate, LocalDate endDate) throws IOException {
-        List<PettyCashTransaction> list = getFilteredTransactions(startDate, endDate, null, null, null, null);
+        List<PettyCashTransaction> allList = getFilteredTransactions(startDate, endDate, null, null, null, null);
+
+        // Filter to only include transactions that have a voucher number assigned
+        List<PettyCashTransaction> list = allList.stream()
+                .filter(tx -> tx.getVoucherNumber() != null && !tx.getVoucherNumber().isBlank())
+                .toList();
+
         if (list.isEmpty()) {
-            throw new IllegalArgumentException("No transactions found for the selected date range");
+            throw new IllegalArgumentException("No transactions with voucher numbers found for the selected date range");
         }
 
         java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();

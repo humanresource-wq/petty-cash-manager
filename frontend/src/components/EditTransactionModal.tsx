@@ -29,6 +29,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const [subcategoryId, setSubcategoryId] = useState<string>('');
   const [voucherNumber, setVoucherNumber] = useState('');
   const [company, setCompany] = useState('');
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [amountChanged, setAmountChanged] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,8 +43,9 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       setPayee(transaction.payee || '');
       setCategoryId(transaction.categoryId?.toString() || '');
       setSubcategoryId(transaction.subcategoryId?.toString() || '');
-      setVoucherNumber(transaction.voucherNumber);
+      setVoucherNumber(transaction.voucherNumber || '');
       setCompany(transaction.company);
+      setReceiptFile(null);
       setAmountChanged(false);
       setError(null);
     }
@@ -72,16 +74,28 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 
     setSubmitting(true);
     try {
-      await api.transactions.update(transaction.id, {
+      const formData = new FormData();
+      const requestPayload = {
         amount: parsedAmount,
         description: description.trim(),
         date,
         payee: payee.trim() || undefined,
         categoryId: isExpense && categoryId ? Number(categoryId) : null,
         subcategoryId: subcategoryId ? Number(subcategoryId) : null,
-        voucherNumber: voucherNumber.trim(),
+        voucherNumber: voucherNumber.trim() || undefined,
         company: company.trim(),
-      });
+      };
+
+      formData.append(
+        'request',
+        new Blob([JSON.stringify(requestPayload)], { type: 'application/json' })
+      );
+
+      if (receiptFile) {
+        formData.append('file', receiptFile);
+      }
+
+      await api.transactions.update(transaction.id, formData);
       toast('✅ Transaction updated successfully!');
       onSuccess();
       onClose();
@@ -295,15 +309,14 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                  Voucher No. <span className="text-red-500">*</span>
+                  Voucher No. <span className="text-slate-600 normal-case font-normal">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   value={voucherNumber}
                   onChange={(e) => setVoucherNumber(e.target.value)}
-                  required
                   className="bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg py-2.5 px-3 text-sm text-white focus:outline-none transition font-mono"
-                  placeholder="e.g. VCH-001"
+                  placeholder="e.g. VCH-001 — can be added later"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -325,6 +338,40 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                 </select>
               </div>
             </div>
+
+            {/* Receipt Upload */}
+            {isExpense && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                  Upload / Replace Receipt <span className="text-slate-600 normal-case font-normal">(Optional)</span>
+                </label>
+                {transaction.receiptName && !receiptFile && (
+                  <p className="text-[10px] text-slate-400">
+                    Current: <span className="text-indigo-400 font-semibold">{transaction.receiptName}</span>
+                  </p>
+                )}
+                <div className="relative">
+                  <input
+                    type="file"
+                    onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                    className="w-full bg-slate-950 border border-dashed border-slate-700 hover:border-indigo-500 rounded-lg py-2.5 px-3 text-sm text-slate-400 focus:outline-none transition cursor-pointer file:bg-indigo-600 file:text-white file:border-0 file:rounded-md file:px-3 file:py-1 file:text-xs file:font-bold file:mr-3 file:cursor-pointer"
+                  />
+                </div>
+                {receiptFile && (
+                  <div className="flex items-center gap-2 text-[10px] text-emerald-400">
+                    <span>📎</span>
+                    <span className="font-semibold">{receiptFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setReceiptFile(null)}
+                      className="text-red-400 hover:text-red-300 font-bold px-1 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Footer */}

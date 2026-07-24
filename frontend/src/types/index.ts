@@ -47,7 +47,7 @@ export interface TransactionResponse {
   receiptFileId: string | null;
   receiptName: string | null;
   voucherFileId: string | null;
-  voucherNumber: string;
+  voucherNumber: string | null;
   company: string;
   editable: boolean;
 }
