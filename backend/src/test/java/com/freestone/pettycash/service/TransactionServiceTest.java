@@ -563,9 +563,9 @@ class TransactionServiceTest {
         );
         TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
         
-        // Use JDBC to update the database record to 40 days ago (more than 1 month + 3 days)
-        java.time.Instant fortyDaysAgo = java.time.Instant.now().minus(java.time.Duration.ofDays(40));
-        jdbcTemplate.update("UPDATE transactions SET created_at = ? WHERE id = ?", fortyDaysAgo, created.id());
+        // Use JDBC to update the database record to 60 days ago (more than 1 month + 15 days)
+        java.time.Instant sixtyDaysAgo = java.time.Instant.now().minus(java.time.Duration.ofDays(60));
+        jdbcTemplate.update("UPDATE transactions SET created_at = ? WHERE id = ?", sixtyDaysAgo, created.id());
 
         // Clear persistence context to force reload from DB
         entityManager.clear();
@@ -980,6 +980,73 @@ class TransactionServiceTest {
         PettyCashTransaction updatedTx = entityManager.find(PettyCashTransaction.class, created.id());
         assertThat(updatedTx.getVoucherNumber()).isEqualTo("VOC-REGEN-002");
         assertThat(updatedTx.getVoucherFileId()).isNull();
+    }
+
+    @Test
+    @DisplayName("Recording transaction with duplicate voucher number for same company and year throws exception")
+    void duplicateVoucherNumberCompanyAndYearThrows() throws Exception {
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(10000.00));
+        cashBoxRepository.save(box);
+        LocalDate date = LocalDate.of(2026, 5, 10);
+        TransactionRequest req1 = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(50.00),
+                "Expense 1",
+                date,
+                "Recipient 1",
+                testCategory.getId(),
+                testSubcategory.getId(),
+                "VOUCHER-001",
+                "Freestone Infotech Pvt Ltd"
+        );
+        transactionService.recordTransaction(req1, "payer@example.com", null, null, null);
+
+        // Same voucher, same company, same year -> should throw
+        TransactionRequest req2 = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(30.00),
+                "Expense 2",
+                date,
+                "Recipient 2",
+                testCategory.getId(),
+                testSubcategory.getId(),
+                "VOUCHER-001",
+                "Freestone Infotech Pvt Ltd"
+        );
+        assertThatThrownBy(() -> transactionService.recordTransaction(req2, "payer@example.com", null, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("already exists for company 'Freestone Infotech Pvt Ltd' in year 2026");
+
+        // Same voucher, DIFFERENT company -> succeeds
+        TransactionRequest req3 = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(30.00),
+                "Expense 3",
+                date,
+                "Recipient 3",
+                testCategory.getId(),
+                testSubcategory.getId(),
+                "VOUCHER-001",
+                "Freestone Technologies LLP"
+        );
+        org.assertj.core.api.Assertions.assertThatCode(() -> transactionService.recordTransaction(req3, "payer@example.com", null, null, null))
+                .doesNotThrowAnyException();
+
+        // Same voucher, same company, DIFFERENT year (2027) -> succeeds
+        TransactionRequest req4 = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(30.00),
+                "Expense 4",
+                date.plusYears(1),
+                "Recipient 4",
+                testCategory.getId(),
+                testSubcategory.getId(),
+                "VOUCHER-001",
+                "Freestone Infotech Pvt Ltd"
+        );
+        org.assertj.core.api.Assertions.assertThatCode(() -> transactionService.recordTransaction(req4, "payer@example.com", null, null, null))
+                .doesNotThrowAnyException();
     }
 }
 

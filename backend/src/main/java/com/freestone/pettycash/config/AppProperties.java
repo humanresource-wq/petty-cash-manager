@@ -26,6 +26,11 @@ public class AppProperties {
      */
     private TransactionConfig transaction = new TransactionConfig();
 
+    /**
+     * Nested configuration properties under "app.signatures".
+     */
+    private SignatureConfig signatures = new SignatureConfig();
+
     @Getter
     @Setter
     public static class TransactionConfig {
@@ -47,5 +52,24 @@ public class AppProperties {
          * Number of days for edit limit. Default is 3 days.
          */
         private int days = 3;
+    }
+
+    @Getter
+    @Setter
+    public static class SignatureConfig {
+        /**
+         * Location/directory for digital signature image files (e.g., "classpath:signatures/" or "signatures/").
+         */
+        private String directory = "classpath:signatures/";
+
+        /**
+         * User email or identifier to signature image filename mapping.
+         */
+        private java.util.Map<String, String> userMap = new java.util.HashMap<>();
+
+        /**
+         * Default email or identifier for the "Approved By" authority signature block.
+         */
+        private String approvedBy = "admin@freestone.com";
     }
 }

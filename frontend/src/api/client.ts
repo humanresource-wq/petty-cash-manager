@@ -35,9 +35,25 @@ client.interceptors.request.use((config) => {
 // Handle global API failures
 client.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     let errorMessage = 'An unexpected error occurred';
-    if (error.response?.data?.message) {
+    if (error.response?.data instanceof Blob) {
+      try {
+        const text = await error.response.data.text();
+        const json = JSON.parse(text);
+        if (json.message) {
+          errorMessage = json.message;
+        } else if (json.detail) {
+          errorMessage = json.detail;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+      } catch {
+        if (error.message) {
+          errorMessage = error.message;
+        }
+      }
+    } else if (error.response?.data?.message) {
       errorMessage = error.response.data.message;
     } else if (error.response?.data?.detail) {
       errorMessage = error.response.data.detail;

@@ -5,9 +5,10 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
                             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
-    <!-- Include all changesets in order -->
-    <include file="db/changelog/changes/001-baseline.xml"/>
-    <include file="db/changelog/changes/002-make-voucher-nullable.xml"/>
-    <include file="db/changelog/changes/003-voucher-company-year-uniqueness.xml"/>
+    <changeSet id="003-voucher-company-year-uniqueness" author="pettycash">
+        <comment>Drop uq_transaction_voucher_date constraint to allow voucher number uniqueness by company and year via application validation</comment>
+
+        <dropUniqueConstraint tableName="transactions" constraintName="uq_transaction_voucher_date"/>
+    </changeSet>
 
 </databaseChangeLog>

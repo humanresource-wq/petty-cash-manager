@@ -35,6 +35,19 @@ public interface TransactionRepository extends JpaRepository<PettyCashTransactio
 
     boolean existsByVoucherNumberAndDate(String voucherNumber, LocalDate date);
 
+    @Query("SELECT COUNT(t) > 0 FROM PettyCashTransaction t " +
+           "WHERE LOWER(t.voucherNumber) = LOWER(:voucherNumber) " +
+           "AND LOWER(t.company) = LOWER(:company) " +
+           "AND t.date BETWEEN :startOfYear AND :endOfYear " +
+           "AND (:excludeId IS NULL OR t.id <> :excludeId)")
+    boolean existsByVoucherNumberCompanyAndYear(
+            @Param("voucherNumber") String voucherNumber,
+            @Param("company") String company,
+            @Param("startOfYear") LocalDate startOfYear,
+            @Param("endOfYear") LocalDate endOfYear,
+            @Param("excludeId") Long excludeId
+    );
+
     /**
      * Fetches all transactions with category and subcategory eagerly joined.
      * Used in export (CSV/PDF) to avoid LazyInitializationException outside a session.

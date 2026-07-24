@@ -73,8 +73,14 @@ public class TransactionService {
                     : null;
         }
 
-        if (resolvedVoucherNumber != null && transactionRepository.existsByVoucherNumberAndDate(resolvedVoucherNumber, request.date())) {
-            throw new IllegalArgumentException("Voucher number '" + resolvedVoucherNumber + "' is already registered on " + request.date());
+        if (resolvedVoucherNumber != null) {
+            String companyName = request.company().trim();
+            int year = request.date().getYear();
+            LocalDate startOfYear = LocalDate.of(year, 1, 1);
+            LocalDate endOfYear = LocalDate.of(year, 12, 31);
+            if (transactionRepository.existsByVoucherNumberCompanyAndYear(resolvedVoucherNumber, companyName, startOfYear, endOfYear, null)) {
+                throw new IllegalArgumentException("Voucher number '" + resolvedVoucherNumber + "' already exists for company '" + companyName + "' in year " + year);
+            }
         }
 
         if (request.type() == TransactionType.EXPENSE) {
@@ -324,9 +330,19 @@ public class TransactionService {
         boolean voucherChanged = (oldVoucherNumber == null && newVoucherNumber != null)
                 || (oldVoucherNumber != null && !oldVoucherNumber.equals(newVoucherNumber));
 
-        if (newVoucherNumber != null && voucherChanged
-                && transactionRepository.existsByVoucherNumberAndDate(newVoucherNumber, request.date())) {
-            throw new IllegalArgumentException("Voucher number '" + newVoucherNumber + "' is already registered on " + request.date());
+        String companyName = request.company().trim();
+        LocalDate targetDate = request.date();
+        int year = targetDate.getYear();
+        LocalDate startOfYear = LocalDate.of(year, 1, 1);
+        LocalDate endOfYear = LocalDate.of(year, 12, 31);
+
+        boolean voucherDetailsChanged = voucherChanged
+                || !transaction.getCompany().equalsIgnoreCase(companyName)
+                || transaction.getDate().getYear() != year;
+
+        if (newVoucherNumber != null && voucherDetailsChanged
+                && transactionRepository.existsByVoucherNumberCompanyAndYear(newVoucherNumber, companyName, startOfYear, endOfYear, transaction.getId())) {
+            throw new IllegalArgumentException("Voucher number '" + newVoucherNumber + "' already exists for company '" + companyName + "' in year " + year);
         }
 
         transaction.setVoucherNumber(newVoucherNumber);
