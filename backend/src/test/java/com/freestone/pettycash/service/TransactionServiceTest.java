@@ -650,7 +650,7 @@ class TransactionServiceTest {
         LocalDate farFuture = LocalDate.now().plusYears(10);
         assertThatThrownBy(() -> transactionService.exportVouchersZip(farFuture, farFuture))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("No transactions found for the selected date range");
+                .hasMessageContaining("No transactions with voucher numbers found for the selected date range");
     }
 
     @Test
@@ -734,4 +734,252 @@ class TransactionServiceTest {
         PettyCashTransaction savedTx = entityManager.find(PettyCashTransaction.class, response.id());
         assertThat(savedTx.getVoucherFileId()).startsWith("mock-file-id-");
     }
+
+    // ─── Optional Voucher Number & Enhanced Edit Tests ─────────────────────────
+
+    @Test
+    @DisplayName("Recording expense without voucher number succeeds")
+    @Transactional
+    void recordExpenseWithoutVoucherNumberSucceeds() throws Exception {
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(5000.00));
+        cashBoxRepository.save(box);
+
+        TransactionRequest request = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(300.00),
+                "No voucher expense",
+                LocalDate.now(),
+                "Tony Stark",
+                testCategory.getId(),
+                testSubcategory.getId(),
+                null, // No voucher number
+                "Freestone Technologies LLP"
+        );
+
+        TransactionResponse response = transactionService.recordTransaction(request, "admin@example.com", null, null, null);
+
+        assertThat(response.type()).isEqualTo(TransactionType.EXPENSE);
+        assertThat(response.amount()).isEqualByComparingTo("300.00");
+        assertThat(response.voucherNumber()).isNull();
+        assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("4700.00");
+    }
+
+    @Test
+    @DisplayName("Recording expense with voucher number succeeds")
+    @Transactional
+    void recordExpenseWithVoucherNumberSucceeds() throws Exception {
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(5000.00));
+        cashBoxRepository.save(box);
+
+        TransactionRequest request = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(200.00),
+                "Voucher expense",
+                LocalDate.now(),
+                "Tony Stark",
+                testCategory.getId(),
+                null,
+                "VOC-WITH-001",
+                "Freestone Technologies LLP"
+        );
+
+        TransactionResponse response = transactionService.recordTransaction(request, "admin@example.com", null, null, null);
+
+        assertThat(response.type()).isEqualTo(TransactionType.EXPENSE);
+        assertThat(response.voucherNumber()).isEqualTo("VOC-WITH-001");
+        assertThat(transactionService.getCashBoxDetails().balance()).isEqualByComparingTo("4800.00");
+    }
+
+    @Test
+    @DisplayName("Updating transaction to add voucher number persists the change")
+    @Transactional
+    void updateTransactionVoucherNumber() throws Exception {
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(5000.00));
+        cashBoxRepository.save(box);
+
+        // Record without voucher
+        TransactionRequest createReq = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(100.00),
+                "Will add voucher later",
+                LocalDate.now(),
+                "John",
+                testCategory.getId(),
+                null,
+                null,
+                "Freestone Technologies LLP"
+        );
+        TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
+        assertThat(created.voucherNumber()).isNull();
+
+        // Edit to add voucher number
+        TransactionUpdateRequest updateReq = new TransactionUpdateRequest(
+                BigDecimal.valueOf(100.00),
+                "Will add voucher later",
+                LocalDate.now(),
+                "John",
+                testCategory.getId(),
+                null,
+                "VOC-EDIT-001",
+                "Freestone Technologies LLP"
+        );
+        TransactionResponse updated = transactionService.updateTransaction(created.id(), updateReq);
+        assertThat(updated.voucherNumber()).isEqualTo("VOC-EDIT-001");
+    }
+
+    @Test
+    @DisplayName("Updating transaction company name persists the change")
+    @Transactional
+    void updateTransactionCompanyName() throws Exception {
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(5000.00));
+        cashBoxRepository.save(box);
+
+        TransactionRequest createReq = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(100.00),
+                "Company test",
+                LocalDate.now(),
+                "John",
+                testCategory.getId(),
+                null,
+                "VOC-COMP-001",
+                "Freestone Technologies LLP"
+        );
+        TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
+        assertThat(created.company()).isEqualTo("Freestone Technologies LLP");
+
+        // Edit to change company
+        TransactionUpdateRequest updateReq = new TransactionUpdateRequest(
+                BigDecimal.valueOf(100.00),
+                "Company test",
+                LocalDate.now(),
+                "John",
+                testCategory.getId(),
+                null,
+                "VOC-COMP-001",
+                "New Company Name"
+        );
+        TransactionResponse updated = transactionService.updateTransaction(created.id(), updateReq);
+        assertThat(updated.company()).isEqualTo("New Company Name");
+    }
+
+    @Test
+    @DisplayName("Downloading voucher is blocked when voucher number is not assigned")
+    @Transactional
+    void downloadVoucherBlockedWithoutVoucherNumber() throws Exception {
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(5000.00));
+        cashBoxRepository.save(box);
+
+        TransactionRequest request = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(100.00),
+                "No voucher download test",
+                LocalDate.now(),
+                "John",
+                testCategory.getId(),
+                null,
+                null,
+                "Freestone Technologies LLP"
+        );
+        TransactionResponse response = transactionService.recordTransaction(request, "admin@example.com", null, null, null);
+
+        assertThatThrownBy(() -> transactionService.getOrGenerateVoucher(response.id()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Voucher number must be assigned before downloading the voucher");
+    }
+
+    @Test
+    @DisplayName("Downloading voucher succeeds after voucher number is assigned")
+    @Transactional
+    void downloadVoucherSucceedsWithVoucherNumber() throws Exception {
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(5000.00));
+        cashBoxRepository.save(box);
+
+        // Record without voucher
+        TransactionRequest request = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(100.00),
+                "Voucher download after edit",
+                LocalDate.now(),
+                "John",
+                testCategory.getId(),
+                null,
+                null,
+                "Freestone Technologies LLP"
+        );
+        TransactionResponse created = transactionService.recordTransaction(request, "admin@example.com", null, null, null);
+
+        // Add voucher number via edit
+        TransactionUpdateRequest updateReq = new TransactionUpdateRequest(
+                BigDecimal.valueOf(100.00),
+                "Voucher download after edit",
+                LocalDate.now(),
+                "John",
+                testCategory.getId(),
+                null,
+                "VOC-DL-001",
+                "Freestone Technologies LLP"
+        );
+        transactionService.updateTransaction(created.id(), updateReq);
+
+        // Now download should succeed
+        byte[] pdfBytes = transactionService.getOrGenerateVoucher(created.id());
+        assertThat(pdfBytes).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("Changing voucher number clears voucherFileId to force PDF regeneration")
+    @Transactional
+    void updateTransactionClearsVoucherFileIdOnVoucherNumberChange() throws Exception {
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.valueOf(5000.00));
+        cashBoxRepository.save(box);
+
+        // Record with voucher
+        TransactionRequest createReq = new TransactionRequest(
+                TransactionType.EXPENSE,
+                BigDecimal.valueOf(100.00),
+                "Voucher regen test",
+                LocalDate.now(),
+                "John",
+                testCategory.getId(),
+                null,
+                "VOC-REGEN-001",
+                "Freestone Technologies LLP"
+        );
+        TransactionResponse created = transactionService.recordTransaction(createReq, "admin@example.com", null, null, null);
+
+        // Generate voucher to set voucherFileId
+        transactionService.getOrGenerateVoucher(created.id());
+
+        PettyCashTransaction tx = entityManager.find(PettyCashTransaction.class, created.id());
+        assertThat(tx.getVoucherFileId()).isNotNull();
+
+        // Change voucher number — should clear the cached file ID
+        TransactionUpdateRequest updateReq = new TransactionUpdateRequest(
+                BigDecimal.valueOf(100.00),
+                "Voucher regen test",
+                LocalDate.now(),
+                "John",
+                testCategory.getId(),
+                null,
+                "VOC-REGEN-002",
+                "Freestone Technologies LLP"
+        );
+        transactionService.updateTransaction(created.id(), updateReq);
+
+        // Refresh from DB
+        entityManager.flush();
+        entityManager.clear();
+        PettyCashTransaction updatedTx = entityManager.find(PettyCashTransaction.class, created.id());
+        assertThat(updatedTx.getVoucherNumber()).isEqualTo("VOC-REGEN-002");
+        assertThat(updatedTx.getVoucherFileId()).isNull();
+    }
 }
+

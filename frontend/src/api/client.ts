@@ -74,16 +74,10 @@ export const api = {
       client.post<TransactionResponse>('/transactions', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       }).then((r) => r.data),
-    update: (id: number, data: {
-      amount: number;
-      description: string;
-      date: string;
-      payee?: string;
-      categoryId?: number | null;
-      subcategoryId?: number | null;
-      voucherNumber: string;
-      company: string;
-    }) => client.put<TransactionResponse>(`/transactions/${id}`, data).then((r) => r.data),
+    update: (id: number, formData: FormData) =>
+      client.put<TransactionResponse>(`/transactions/${id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }).then((r) => r.data),
     downloadReceipt: (id: number) =>
       client.get(`/transactions/${id}/receipt`, { responseType: 'blob' }).then((r) => r.data),
     downloadVoucher: (id: number) =>

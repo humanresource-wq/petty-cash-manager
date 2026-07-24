@@ -19,6 +19,8 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -127,9 +129,15 @@ class TransactionControllerTest {
                 "Freestone Technologies LLP"
         );
 
-        mockMvc.perform(put("/api/v1/transactions/{id}", created.id())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updateRequest)))
+        MockMultipartHttpServletRequestBuilder multipartBuilder =
+                MockMvcRequestBuilders.multipart("/api/v1/transactions/{id}", created.id());
+        multipartBuilder.with(request -> { request.setMethod("PUT"); return request; });
+
+        MockMultipartFile requestPart = new MockMultipartFile(
+                "request", "", MediaType.APPLICATION_JSON_VALUE,
+                objectMapper.writeValueAsBytes(updateRequest));
+
+        mockMvc.perform(multipartBuilder.file(requestPart))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Insufficient balance in Cash Box. Requested: Rs. 1000.00, Available: Rs. 500.00"));
     }
@@ -178,6 +186,6 @@ class TransactionControllerTest {
                         .param("startDate", farFuture.toString())
                         .param("endDate", farFuture.toString()))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("No transactions found for the selected date range"));
+                .andExpect(jsonPath("$.message").value("No transactions with voucher numbers found for the selected date range"));
     }
 }
