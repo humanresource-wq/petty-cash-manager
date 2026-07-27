@@ -26,6 +26,11 @@ public class AppProperties {
      */
     private TransactionConfig transaction = new TransactionConfig();
 
+    /**
+     * Nested configuration properties under "app.signatures".
+     */
+    private SignatureConfig signatures = new SignatureConfig();
+
     @Getter
     @Setter
     public static class TransactionConfig {
@@ -48,4 +53,15 @@ public class AppProperties {
          */
         private int days = 3;
     }
+
+    @Getter
+    @Setter
+    public static class SignatureConfig {
+        /**
+         * Default email or identifier for the "Approved By" authority signature block.
+         */
+        private String approvedBy = "admin@freestone.com";
+    }
+
+
 }

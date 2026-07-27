@@ -64,7 +64,11 @@ app:
   transaction:
     edit-limit:
       months: ${TRANSACTION_EDIT_LIMIT_MONTHS:1}
-      days: ${TRANSACTION_EDIT_LIMIT_DAYS:3}
+      days: ${TRANSACTION_EDIT_LIMIT_DAYS:15}
+  signatures:
+    approved-by: ${APP_SIGNATURES_APPROVED_BY:admin@freestone.com}
+
+
 
 # SpringDoc
 springdoc:

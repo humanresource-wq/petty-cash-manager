@@ -177,12 +177,24 @@ public class TransactionController {
                 .body(bytes);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TransactionResponse> updateTransaction(
             @PathVariable Long id,
-            @Valid @RequestBody TransactionUpdateRequest request) {
-        return ResponseEntity.ok(transactionService.updateTransaction(id, request));
+            @RequestPart("request") @Valid TransactionUpdateRequest request,
+            @RequestPart(value = "file", required = false) MultipartFile file) throws IOException {
+
+        byte[] fileBytes = null;
+        String filename = null;
+        String mimeType = null;
+
+        if (file != null && !file.isEmpty()) {
+            fileBytes = file.getBytes();
+            filename = file.getOriginalFilename();
+            mimeType = file.getContentType();
+        }
+
+        return ResponseEntity.ok(transactionService.updateTransactionWithReceipt(id, request, fileBytes, filename, mimeType));
     }
 
     @PutMapping("/{id}/receipt-status")

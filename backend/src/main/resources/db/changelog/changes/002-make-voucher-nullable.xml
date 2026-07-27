@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="002-make-voucher-nullable" author="pettycash">
+        <comment>Make voucher_number nullable so expenses can be recorded without an immediate voucher number assignment</comment>
+
+        <!-- Drop the existing unique constraint on (voucher_number, date) -->
+        <dropUniqueConstraint tableName="transactions" constraintName="uq_transaction_voucher_date"/>
+
+        <!-- Make voucher_number nullable -->
+        <dropNotNullConstraint tableName="transactions" columnName="voucher_number" columnDataType="varchar(100)"/>
+
+        <!-- Re-add a unique constraint that still prevents duplicate voucher numbers on the same date,
+             but allows multiple NULL voucher_number values (SQL standard behavior in PostgreSQL and H2) -->
+        <addUniqueConstraint tableName="transactions" columnNames="voucher_number, date"
+                             constraintName="uq_transaction_voucher_date"/>
+    </changeSet>
+
+</databaseChangeLog>

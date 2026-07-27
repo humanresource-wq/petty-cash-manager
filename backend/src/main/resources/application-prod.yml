@@ -31,3 +31,7 @@ app:
       private-key: ${GOOGLE_DRIVE_PRIVATE_KEY:}
       client-email: ${GOOGLE_DRIVE_CLIENT_EMAIL:}
       parent-folder-id: ${GOOGLE_DRIVE_PARENT_FOLDER_ID:}
+  signatures:
+    approved-by: ${APP_SIGNATURES_APPROVED_BY:admin@freestone.com}
+
+

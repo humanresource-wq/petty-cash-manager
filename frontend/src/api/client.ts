@@ -13,7 +13,9 @@ import type {
   Role,
   DashboardStatsResponse,
   Page,
+  SignatureResponse,
 } from '../types';
+
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
@@ -35,9 +37,25 @@ client.interceptors.request.use((config) => {
 // Handle global API failures
 client.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     let errorMessage = 'An unexpected error occurred';
-    if (error.response?.data?.message) {
+    if (error.response?.data instanceof Blob) {
+      try {
+        const text = await error.response.data.text();
+        const json = JSON.parse(text);
+        if (json.message) {
+          errorMessage = json.message;
+        } else if (json.detail) {
+          errorMessage = json.detail;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+      } catch {
+        if (error.message) {
+          errorMessage = error.message;
+        }
+      }
+    } else if (error.response?.data?.message) {
       errorMessage = error.response.data.message;
     } else if (error.response?.data?.detail) {
       errorMessage = error.response.data.detail;
@@ -74,16 +92,10 @@ export const api = {
       client.post<TransactionResponse>('/transactions', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       }).then((r) => r.data),
-    update: (id: number, data: {
-      amount: number;
-      description: string;
-      date: string;
-      payee?: string;
-      categoryId?: number | null;
-      subcategoryId?: number | null;
-      voucherNumber: string;
-      company: string;
-    }) => client.put<TransactionResponse>(`/transactions/${id}`, data).then((r) => r.data),
+    update: (id: number, formData: FormData) =>
+      client.put<TransactionResponse>(`/transactions/${id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }).then((r) => r.data),
     downloadReceipt: (id: number) =>
       client.get(`/transactions/${id}/receipt`, { responseType: 'blob' }).then((r) => r.data),
     downloadVoucher: (id: number) =>
@@ -185,5 +197,16 @@ export const api = {
       search?: string;
     }) => client.get('/reports/export/csv', { params, responseType: 'blob' }).then((r) => r.data),
   },
+
+  signatures: {
+    list: () => client.get<SignatureResponse[]>('/signatures').then((r) => r.data),
+    upload: (formData: FormData) =>
+      client.post<SignatureResponse>('/signatures', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }).then((r) => r.data),
+    delete: (id: number) => client.delete<void>(`/signatures/${id}`).then((r) => r.data),
+    getImageUrl: (id: number) => `${BASE_URL}/signatures/${id}/image`,
+  },
 };
 export default api;
+

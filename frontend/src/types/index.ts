@@ -47,7 +47,7 @@ export interface TransactionResponse {
   receiptFileId: string | null;
   receiptName: string | null;
   voucherFileId: string | null;
-  voucherNumber: string;
+  voucherNumber: string | null;
   company: string;
   editable: boolean;
 }
@@ -107,3 +107,12 @@ export interface Page<T> {
   numberOfElements: number;
   empty: boolean;
 }
+
+export interface SignatureResponse {
+  id: number;
+  identifier: string;
+  contentType: string;
+  createdAt: string;
+}
+
+

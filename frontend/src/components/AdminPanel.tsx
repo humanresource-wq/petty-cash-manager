@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import type { CategoryResponse, ExpenseTemplate, Role, UserResponse, UserStatus } from '../types';
+import type { CategoryResponse, ExpenseTemplate, Role, UserResponse, UserStatus, SignatureResponse } from '../types';
 
 interface AdminPanelProps {
   currentUser: UserResponse;
@@ -9,8 +9,8 @@ interface AdminPanelProps {
   lowThreshold: number;
   onRefresh: () => void;
   toast: (msg: string) => void;
-  activeTab: 'categories' | 'templates' | 'users' | 'threshold';
-  setActiveTab: (tab: 'categories' | 'templates' | 'users' | 'threshold') => void;
+  activeTab: 'categories' | 'templates' | 'users' | 'signatures' | 'threshold';
+  setActiveTab: (tab: 'categories' | 'templates' | 'users' | 'signatures' | 'threshold') => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -47,6 +47,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newUserEmail, setNewUserEmail] = useState<string>('');
   const [newUserRole, setNewUserRole] = useState<Role>('USER');
 
+  // Signatures directory states
+  const [signaturesList, setSignaturesList] = useState<SignatureResponse[]>([]);
+  const [sigIdentifier, setSigIdentifier] = useState<string>('');
+  const [sigFile, setSigFile] = useState<File | null>(null);
+  const [sigPreview, setSigPreview] = useState<string | null>(null);
+
+
   // Threshold state
   const [thresholdInput, setThresholdInput] = useState<string>(lowThreshold.toString());
 
@@ -57,8 +64,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   useEffect(() => {
     if (activeTab === 'users' && currentUser.role === 'ADMIN') {
       fetchUsers();
+    } else if (activeTab === 'signatures' && currentUser.role === 'ADMIN') {
+      fetchSignatures();
     }
   }, [activeTab, currentUser]);
+
+  const fetchSignatures = async () => {
+    try {
+      const data = await api.signatures.list();
+      setSignaturesList(data);
+    } catch (err) {
+      toast('❌ Error loading signatures: ' + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
 
   const fetchUsers = async () => {
     try {
@@ -286,6 +305,57 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
+  // --- Signature Handlers ---
+  const handleSigFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
+      setSigFile(selectedFile);
+      setSigPreview(URL.createObjectURL(selectedFile));
+    }
+  };
+
+  const handleUploadSignature = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sigIdentifier.trim() || !sigFile) {
+      toast('⚠️ Please provide User Identifier Key and Signature Image file.');
+      return;
+    }
+    const cleanId = sigIdentifier.trim().toLowerCase();
+    const isOverride = signaturesList.some((s) => s.identifier.toLowerCase() === cleanId);
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('identifier', sigIdentifier.trim());
+      formData.append('file', sigFile);
+      await api.signatures.upload(formData);
+      toast(isOverride ? `⚠️ Signature for "${sigIdentifier.trim()}" was OVERWRITTEN in DB` : `✅ New signature for "${sigIdentifier.trim()}" saved!`);
+      setSigIdentifier('');
+      setSigFile(null);
+      setSigPreview(null);
+      fetchSignatures();
+    } catch (err) {
+      toast('❌ Error uploading signature: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+
+  const handleDeleteSignature = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this signature?')) return;
+    setLoading(true);
+    try {
+      await api.signatures.delete(id);
+      toast('✅ Signature deleted!');
+      fetchSignatures();
+    } catch (err) {
+      toast('❌ Error deleting signature: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="w-full bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl flex flex-col gap-6">
       {/* Sub tabs nav bar */}
@@ -315,6 +385,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           👤 User Directory
         </button>
         <button
+          onClick={() => setActiveTab('signatures')}
+          className={`py-2 px-4 rounded-lg text-xs font-bold transition ${
+            activeTab === 'signatures' ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          ✍️ Digital Signatures
+        </button>
+        <button
           onClick={() => setActiveTab('threshold')}
           className={`py-2 px-4 rounded-lg text-xs font-bold transition ${
             activeTab === 'threshold' ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'
@@ -323,6 +401,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           🔔 Threshold Warning
         </button>
       </div>
+
 
       {/* Categories configuration */}
       {activeTab === 'categories' && (
@@ -720,8 +799,148 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
+      {/* Signatures Management */}
+      {activeTab === 'signatures' && (
+        <div className="flex flex-col gap-6">
+          <div>
+            <h4 className="text-sm font-bold text-white mb-1">✍️ Digital Signatures Management</h4>
+            <p className="text-xs text-slate-400">
+              Upload signature images for users or payees. Signatures are automatically standardized and stored as BLOBs in the database.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Upload Form Card */}
+            <form onSubmit={handleUploadSignature} className="bg-slate-950 border border-slate-800 rounded-xl p-5 flex flex-col gap-4">
+              <h5 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Upload New Signature</h5>
+              
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-400">
+                  User Identifier / Key <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. santosh, swiggy, harsh"
+                  value={sigIdentifier}
+                  onChange={(e) => setSigIdentifier(e.target.value)}
+                  className="bg-slate-900 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  required
+                />
+                <p className="text-[10px] text-slate-500">
+                  Payee names matching this key (e.g. "santosh shelke") will automatically use this signature.
+                </p>
+                {sigIdentifier.trim().length > 0 && signaturesList.some((s) => s.identifier.toLowerCase() === sigIdentifier.trim().toLowerCase()) && (
+                  <div className="bg-amber-950/40 border border-amber-800/60 rounded-lg p-2 text-[11px] text-amber-300 font-semibold flex items-center gap-1.5 mt-1">
+                    <span>⚠️</span>
+                    <span>Key "{sigIdentifier.trim()}" already exists in DB. Uploading will OVERWRITE the existing signature.</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-400">
+                  Signature Image File (.png, .jpg) <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg, image/jpg"
+                  onChange={handleSigFileChange}
+                  className="text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600/20 file:text-indigo-400 hover:file:bg-indigo-600/30 cursor-pointer"
+                  required
+                />
+              </div>
+
+              {sigPreview && (
+                <div className="flex flex-col gap-1 mt-1 bg-slate-900/60 border border-slate-800 rounded-lg p-3 items-center">
+                  <span className="text-[10px] font-semibold text-slate-400">Selected Image Preview:</span>
+                  <img src={sigPreview} alt="Preview" className="h-16 max-w-full object-contain bg-white/10 p-1.5 rounded" />
+                </div>
+              )}
+
+              {(() => {
+                const isOverride = sigIdentifier.trim().length > 0 && signaturesList.some((s) => s.identifier.toLowerCase() === sigIdentifier.trim().toLowerCase());
+                return (
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className={`mt-2 font-bold text-xs px-4 py-2.5 rounded-lg transition shadow-lg ${
+                      isOverride
+                        ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20'
+                        : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'
+                    }`}
+                  >
+                    {loading ? 'Processing...' : isOverride ? '⚠️ Overwrite Existing Signature in DB' : 'Save New Signature to DB'}
+                  </button>
+                );
+              })()}
+
+            </form>
+
+            {/* Stored Signatures Library Card */}
+            <div className="lg:col-span-2 bg-slate-950 border border-slate-800 rounded-xl p-5 flex flex-col gap-4">
+              <div className="flex justify-between items-center">
+                <h5 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                  Stored Database Signatures ({signaturesList.length})
+                </h5>
+                <button
+                  type="button"
+                  onClick={fetchSignatures}
+                  className="text-[11px] font-semibold text-indigo-400 hover:underline"
+                >
+                  🔄 Refresh List
+                </button>
+              </div>
+
+              {signaturesList.length === 0 ? (
+                <div className="bg-slate-900/40 border border-slate-800/80 rounded-lg p-8 text-center text-slate-500 text-xs">
+                  No signatures uploaded yet. Upload a signature above to store it in the database.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-slate-800">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-900 text-slate-400 text-[11px] font-semibold border-b border-slate-800">
+                        <th className="p-3">Signature Image</th>
+                        <th className="p-3">User Identifier Key</th>
+                        <th className="p-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 text-xs">
+                      {signaturesList.map((sig) => (
+                        <tr key={sig.id} className="hover:bg-slate-900/40 transition">
+                          <td className="p-3">
+                            <div className="bg-white/10 p-1.5 rounded inline-block">
+                              <img
+                                src={api.signatures.getImageUrl(sig.id)}
+                                alt={sig.identifier}
+                                className="h-10 max-w-[140px] object-contain"
+                              />
+                            </div>
+                          </td>
+                          <td className="p-3 font-mono text-indigo-300 font-semibold">{sig.identifier}</td>
+                          <td className="p-3 text-right">
+                            <button
+                              onClick={() => handleDeleteSignature(sig.id)}
+                              className="text-xs font-bold text-red-400 hover:text-red-300 border border-red-900/50 bg-red-950/30 hover:bg-red-900/40 rounded px-2.5 py-1 transition"
+                            >
+                              🗑️ Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Threshold Low Balance alerts */}
       {activeTab === 'threshold' && (
+
         <div className="flex flex-col gap-6">
           <div>
             <h4 className="text-sm font-bold text-white mb-1">Low Balance Threshold Settings</h4>

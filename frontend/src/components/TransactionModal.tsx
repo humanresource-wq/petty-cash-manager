@@ -169,10 +169,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setError('Select a valid transaction date.');
       return;
     }
-    if (txType === 'EXPENSE' && !voucherNumber.trim()) {
-      setError('Voucher number must not be blank.');
-      return;
-    }
     if (!company) {
       setError('Select a company.');
       return;
@@ -200,7 +196,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         payee: txType === 'EXPENSE' ? payee.trim() : null,
         categoryId: txType === 'EXPENSE' ? Number(selectedCategoryId) : null,
         subcategoryId: txType === 'EXPENSE' && selectedSubcategoryId ? Number(selectedSubcategoryId) : null,
-        voucherNumber: voucherNumber.trim(),
+        voucherNumber: voucherNumber.trim() || undefined,
         company,
       };
 
@@ -334,13 +330,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           <div className={`grid gap-4 ${txType === 'EXPENSE' ? 'grid-cols-2' : 'grid-cols-1'}`}>
             {txType === 'EXPENSE' && (
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-bold">
-                  Voucher Number
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-bold">
+                  Voucher Number <span className="text-slate-600 normal-case font-normal">(Optional)</span>
                 </label>
                 <input
                   type="text"
-                  required
-                  placeholder="e.g. Voc-001-09-12-2026"
+                  placeholder="e.g. Voc-001 — can be added later"
                   value={voucherNumber}
                   onChange={(e) => setVoucherNumber(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-indigo-500"

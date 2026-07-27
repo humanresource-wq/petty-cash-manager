@@ -27,7 +27,7 @@ public class PettyCashTransaction {
     @Column(name = "transaction_no", nullable = false, unique = true)
     private String transactionNo;
 
-    @Column(name = "voucher_number", nullable = false)
+    @Column(name = "voucher_number")
     private String voucherNumber;
 
     @Column(nullable = false)
