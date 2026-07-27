@@ -58,14 +58,10 @@ public class AppProperties {
     @Setter
     public static class SignatureConfig {
         /**
-         * Location/directory for digital signature image files (e.g., "classpath:signatures/" or "signatures/").
-         */
-        private String directory = "classpath:signatures/";
-
-        /**
          * Default email or identifier for the "Approved By" authority signature block.
          */
         private String approvedBy = "admin@freestone.com";
     }
+
 
 }

@@ -32,6 +32,6 @@ app:
       client-email: ${GOOGLE_DRIVE_CLIENT_EMAIL:}
       parent-folder-id: ${GOOGLE_DRIVE_PARENT_FOLDER_ID:}
   signatures:
-    directory: ${APP_SIGNATURES_DIRECTORY:classpath:signatures/}
     approved-by: ${APP_SIGNATURES_APPROVED_BY:admin@freestone.com}
+
 

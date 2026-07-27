@@ -320,6 +320,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       toast('⚠️ Please provide Identifier, Name, and Signature Image file.');
       return;
     }
+    const cleanId = sigIdentifier.trim().toLowerCase();
+    const isOverride = signaturesList.some((s) => s.identifier.toLowerCase() === cleanId);
     setLoading(true);
     try {
       const formData = new FormData();
@@ -327,7 +329,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       formData.append('name', sigName.trim());
       formData.append('file', sigFile);
       await api.signatures.upload(formData);
-      toast('✅ Signature saved to database!');
+      toast(isOverride ? `⚠️ Signature for "${sigIdentifier.trim()}" was OVERWRITTEN in DB` : `✅ New signature for "${sigIdentifier.trim()}" saved!`);
       setSigIdentifier('');
       setSigName('');
       setSigFile(null);
@@ -339,6 +341,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setLoading(false);
     }
   };
+
 
   const handleDeleteSignature = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this signature?')) return;
@@ -818,7 +821,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. santosh, swiggy, admin@company.com"
+                  placeholder="e.g. santosh, swiggy, harsh"
                   value={sigIdentifier}
                   onChange={(e) => setSigIdentifier(e.target.value)}
                   className="bg-slate-900 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500"
@@ -827,6 +830,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <p className="text-[10px] text-slate-500">
                   Payee names matching this key (e.g. "santosh shelke") will automatically use this signature.
                 </p>
+                {sigIdentifier.trim().length > 0 && signaturesList.some((s) => s.identifier.toLowerCase() === sigIdentifier.trim().toLowerCase()) && (
+                  <div className="bg-amber-950/40 border border-amber-800/60 rounded-lg p-2 text-[11px] text-amber-300 font-semibold flex items-center gap-1.5 mt-1">
+                    <span>⚠️</span>
+                    <span>Key "{sigIdentifier.trim()}" already exists in DB. Uploading will OVERWRITE the existing signature.</span>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -863,13 +872,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2.5 rounded-lg transition shadow-lg shadow-indigo-600/20"
-              >
-                {loading ? 'Uploading & Processing...' : 'Save Signature to DB'}
-              </button>
+              {(() => {
+                const isOverride = sigIdentifier.trim().length > 0 && signaturesList.some((s) => s.identifier.toLowerCase() === sigIdentifier.trim().toLowerCase());
+                return (
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className={`mt-2 font-bold text-xs px-4 py-2.5 rounded-lg transition shadow-lg ${
+                      isOverride
+                        ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20'
+                        : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'
+                    }`}
+                  >
+                    {loading ? 'Processing...' : isOverride ? '⚠️ Overwrite Existing Signature in DB' : 'Save New Signature to DB'}
+                  </button>
+                );
+              })()}
+
             </form>
 
             {/* Stored Signatures Library Card */}

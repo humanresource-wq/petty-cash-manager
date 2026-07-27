@@ -66,8 +66,8 @@ app:
       months: ${TRANSACTION_EDIT_LIMIT_MONTHS:1}
       days: ${TRANSACTION_EDIT_LIMIT_DAYS:15}
   signatures:
-    directory: ${APP_SIGNATURES_DIRECTORY:classpath:signatures/}
     approved-by: ${APP_SIGNATURES_APPROVED_BY:admin@freestone.com}
+
 
 
 # SpringDoc
