@@ -13,7 +13,9 @@ import type {
   Role,
   DashboardStatsResponse,
   Page,
+  SignatureResponse,
 } from '../types';
+
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
@@ -195,5 +197,16 @@ export const api = {
       search?: string;
     }) => client.get('/reports/export/csv', { params, responseType: 'blob' }).then((r) => r.data),
   },
+
+  signatures: {
+    list: () => client.get<SignatureResponse[]>('/signatures').then((r) => r.data),
+    upload: (formData: FormData) =>
+      client.post<SignatureResponse>('/signatures', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }).then((r) => r.data),
+    delete: (id: number) => client.delete<void>(`/signatures/${id}`).then((r) => r.data),
+    getImageUrl: (id: number) => `${BASE_URL}/signatures/${id}/image`,
+  },
 };
 export default api;
+

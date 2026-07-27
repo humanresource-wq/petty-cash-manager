@@ -63,13 +63,9 @@ public class AppProperties {
         private String directory = "classpath:signatures/";
 
         /**
-         * User email or identifier to signature image filename mapping.
-         */
-        private java.util.Map<String, String> userMap = new java.util.HashMap<>();
-
-        /**
          * Default email or identifier for the "Approved By" authority signature block.
          */
         private String approvedBy = "admin@freestone.com";
     }
+
 }

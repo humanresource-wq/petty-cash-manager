@@ -107,3 +107,12 @@ export interface Page<T> {
   numberOfElements: number;
   empty: boolean;
 }
+
+export interface SignatureResponse {
+  id: number;
+  identifier: string;
+  name: string;
+  contentType: string;
+  createdAt: string;
+}
+

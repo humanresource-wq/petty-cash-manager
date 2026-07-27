@@ -9,5 +9,7 @@
     <include file="db/changelog/changes/001-baseline.xml"/>
     <include file="db/changelog/changes/002-make-voucher-nullable.xml"/>
     <include file="db/changelog/changes/003-voucher-company-year-uniqueness.xml"/>
+    <include file="db/changelog/changes/004-user-signatures-table.xml"/>
+
 
 </databaseChangeLog>

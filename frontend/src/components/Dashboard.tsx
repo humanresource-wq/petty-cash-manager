@@ -107,7 +107,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
   const [cashbox, setCashbox] = useState<CashBoxResponse>({ balance: 0, lowThreshold: 2000 });
   const [dashboardStats, setDashboardStats] = useState<DashboardStatsResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [adminActiveTab, setAdminActiveTab] = useState<'categories' | 'templates' | 'users' | 'threshold'>('categories');
+  const [adminActiveTab, setAdminActiveTab] = useState<'categories' | 'templates' | 'users' | 'signatures' | 'threshold'>('categories');
+
 
   // Filters for Transactions Tab
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -329,7 +330,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
     }
   };
 
-  const handleDownloadVoucher = async (txId: number, txNo: string, voucherNo: string) => {
+  const handleDownloadVoucher = async (txId: number, txNo: string, voucherNo: string | null) => {
+
     try {
       showToast('📄 Generating A5 landscape voucher...');
       const blob = await api.transactions.downloadVoucher(txId);
