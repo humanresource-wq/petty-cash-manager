@@ -13,9 +13,6 @@
             <column name="identifier" type="VARCHAR(255)">
                 <constraints nullable="false" unique="true"/>
             </column>
-            <column name="name" type="VARCHAR(255)">
-                <constraints nullable="false"/>
-            </column>
             <column name="signature_data" type="BLOB">
                 <constraints nullable="false"/>
             </column>

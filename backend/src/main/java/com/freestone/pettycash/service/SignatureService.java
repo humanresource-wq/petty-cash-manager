@@ -52,23 +52,23 @@ public class SignatureService {
             return null;
         }
 
-        // 1. Exact match (case-insensitive) on identifier or name
+        // 1. Exact match (case-insensitive) on identifier
         for (UserSignature sig : allSignatures) {
-            if (sig.getIdentifier().equalsIgnoreCase(search) || sig.getName().equalsIgnoreCase(search)) {
+            if (sig.getIdentifier().equalsIgnoreCase(search)) {
                 return sig.getSignatureData();
             }
         }
 
         // 2. Word boundary matching (e.g., key "santosh" matching "santosh shelke (swiggy )")
         for (UserSignature sig : allSignatures) {
-            if (matchesWordBoundary(sig.getIdentifier(), search) || matchesWordBoundary(sig.getName(), search)) {
+            if (matchesWordBoundary(sig.getIdentifier(), search)) {
                 return sig.getSignatureData();
             }
         }
 
         // 3. Partial substring contains match
         for (UserSignature sig : allSignatures) {
-            if (matchesSubstring(sig.getIdentifier(), search) || matchesSubstring(sig.getName(), search)) {
+            if (matchesSubstring(sig.getIdentifier(), search)) {
                 return sig.getSignatureData();
             }
         }
@@ -81,31 +81,25 @@ public class SignatureService {
      * Uploads and saves a user signature to the database after standardizing its dimensions.
      */
     @Transactional
-    public SignatureResponse saveSignature(String identifier, String name, MultipartFile file) throws IOException {
+    public SignatureResponse saveSignature(String identifier, MultipartFile file) throws IOException {
         if (identifier == null || identifier.trim().isBlank()) {
             throw new IllegalArgumentException("Identifier must not be blank");
-        }
-        if (name == null || name.trim().isBlank()) {
-            throw new IllegalArgumentException("Name must not be blank");
         }
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Signature image file must not be empty");
         }
 
         byte[] resizedBytes = resizeImageToStandard(file.getBytes(), STANDARD_MAX_WIDTH, STANDARD_MAX_HEIGHT);
-
         String cleanIdentifier = identifier.trim();
-        String cleanName = name.trim();
 
         Optional<UserSignature> existingOpt = userSignatureRepository.findByIdentifierIgnoreCase(cleanIdentifier);
         UserSignature userSignature;
         if (existingOpt.isPresent()) {
             userSignature = existingOpt.get();
-            userSignature.setName(cleanName);
             userSignature.setSignatureData(resizedBytes);
             userSignature.setContentType("image/png");
         } else {
-            userSignature = new UserSignature(cleanIdentifier, cleanName, resizedBytes, "image/png");
+            userSignature = new UserSignature(cleanIdentifier, resizedBytes, "image/png");
         }
 
         UserSignature saved = userSignatureRepository.save(userSignature);
@@ -159,7 +153,7 @@ public class SignatureService {
 
         double widthRatio = (double) maxWidth / originalWidth;
         double heightRatio = (double) maxHeight / originalHeight;
-        double ratio = Math.min(1.0, Math.min(widthRatio, heightRatio)); // Scale down if larger, keep if smaller
+        double ratio = Math.min(1.0, Math.min(widthRatio, heightRatio));
 
         int targetWidth = (int) Math.round(originalWidth * ratio);
         int targetHeight = (int) Math.round(originalHeight * ratio);
@@ -220,7 +214,6 @@ public class SignatureService {
         return new SignatureResponse(
                 sig.getId(),
                 sig.getIdentifier(),
-                sig.getName(),
                 sig.getContentType(),
                 sig.getCreatedAt()
         );

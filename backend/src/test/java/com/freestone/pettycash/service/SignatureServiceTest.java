@@ -55,7 +55,7 @@ class SignatureServiceTest {
         byte[] dummyImageBytes = createSampleImage(600, 300);
         MockMultipartFile file = new MockMultipartFile("file", "santosh.png", "image/png", dummyImageBytes);
 
-        SignatureResponse response = signatureService.saveSignature("santosh", "Santosh Shelke", file);
+        SignatureResponse response = signatureService.saveSignature("santosh", file);
         assertThat(response).isNotNull();
         assertThat(response.getIdentifier()).isEqualTo("santosh");
 

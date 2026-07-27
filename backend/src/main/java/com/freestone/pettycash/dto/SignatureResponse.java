@@ -10,7 +10,6 @@ import java.time.LocalDateTime;
 public class SignatureResponse {
     private Long id;
     private String identifier;
-    private String name;
     private String contentType;
     private LocalDateTime createdAt;
 }

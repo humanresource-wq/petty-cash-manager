@@ -50,9 +50,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   // Signatures directory states
   const [signaturesList, setSignaturesList] = useState<SignatureResponse[]>([]);
   const [sigIdentifier, setSigIdentifier] = useState<string>('');
-  const [sigName, setSigName] = useState<string>('');
   const [sigFile, setSigFile] = useState<File | null>(null);
   const [sigPreview, setSigPreview] = useState<string | null>(null);
+
 
   // Threshold state
   const [thresholdInput, setThresholdInput] = useState<string>(lowThreshold.toString());
@@ -316,8 +316,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleUploadSignature = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sigIdentifier.trim() || !sigName.trim() || !sigFile) {
-      toast('⚠️ Please provide Identifier, Name, and Signature Image file.');
+    if (!sigIdentifier.trim() || !sigFile) {
+      toast('⚠️ Please provide User Identifier Key and Signature Image file.');
       return;
     }
     const cleanId = sigIdentifier.trim().toLowerCase();
@@ -326,12 +326,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     try {
       const formData = new FormData();
       formData.append('identifier', sigIdentifier.trim());
-      formData.append('name', sigName.trim());
       formData.append('file', sigFile);
       await api.signatures.upload(formData);
       toast(isOverride ? `⚠️ Signature for "${sigIdentifier.trim()}" was OVERWRITTEN in DB` : `✅ New signature for "${sigIdentifier.trim()}" saved!`);
       setSigIdentifier('');
-      setSigName('');
       setSigFile(null);
       setSigPreview(null);
       fetchSignatures();
@@ -341,6 +339,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setLoading(false);
     }
   };
+
 
 
   const handleDeleteSignature = async (id: number) => {
@@ -840,20 +839,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-slate-400">
-                  Full / Display Name <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Santosh Shelke"
-                  value={sigName}
-                  onChange={(e) => setSigName(e.target.value)}
-                  className="bg-slate-900 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500"
-                  required
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-slate-400">
                   Signature Image File (.png, .jpg) <span className="text-red-400">*</span>
                 </label>
                 <input
@@ -916,8 +901,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <thead>
                       <tr className="bg-slate-900 text-slate-400 text-[11px] font-semibold border-b border-slate-800">
                         <th className="p-3">Signature Image</th>
-                        <th className="p-3">Identifier Key</th>
-                        <th className="p-3">Display Name</th>
+                        <th className="p-3">User Identifier Key</th>
                         <th className="p-3 text-right">Actions</th>
                       </tr>
                     </thead>
@@ -928,13 +912,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             <div className="bg-white/10 p-1.5 rounded inline-block">
                               <img
                                 src={api.signatures.getImageUrl(sig.id)}
-                                alt={sig.name}
+                                alt={sig.identifier}
                                 className="h-10 max-w-[140px] object-contain"
                               />
                             </div>
                           </td>
                           <td className="p-3 font-mono text-indigo-300 font-semibold">{sig.identifier}</td>
-                          <td className="p-3 text-slate-200">{sig.name}</td>
                           <td className="p-3 text-right">
                             <button
                               onClick={() => handleDeleteSignature(sig.id)}
@@ -949,6 +932,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </table>
                 </div>
               )}
+
             </div>
           </div>
         </div>

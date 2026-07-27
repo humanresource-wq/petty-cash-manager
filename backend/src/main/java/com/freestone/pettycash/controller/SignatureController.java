@@ -27,10 +27,9 @@ public class SignatureController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<SignatureResponse> uploadSignature(
             @RequestParam("identifier") String identifier,
-            @RequestParam("name") String name,
             @RequestParam("file") MultipartFile file) throws IOException {
 
-        SignatureResponse response = signatureService.saveSignature(identifier, name, file);
+        SignatureResponse response = signatureService.saveSignature(identifier, file);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

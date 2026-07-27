@@ -25,9 +25,6 @@ public class UserSignature {
     @Column(nullable = false, unique = true)
     private String identifier;
 
-    @Column(nullable = false)
-    private String name;
-
     @Lob
     @Column(name = "signature_data", nullable = false)
     private byte[] signatureData;
@@ -40,9 +37,8 @@ public class UserSignature {
 
     private LocalDateTime updatedAt;
 
-    public UserSignature(String identifier, String name, byte[] signatureData, String contentType) {
+    public UserSignature(String identifier, byte[] signatureData, String contentType) {
         this.identifier = identifier;
-        this.name = name;
         this.signatureData = signatureData;
         this.contentType = contentType;
     }
