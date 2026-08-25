@@ -450,6 +450,18 @@ public class TransactionService {
                 .map(PettyCashTransaction::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        // Compute reconstructed historical balance when a date filter is active
+        // filteredBalance = SUM(all TOPUPs from epoch to endDate) - SUM(all EXPENSEs from epoch to endDate)
+        BigDecimal filteredBalance = null;
+        if (endDate != null) {
+            LocalDate epoch = LocalDate.of(1970, 1, 1);
+            BigDecimal totalTopups = transactionRepository.sumAmountByTypeAndDateRange(
+                    TransactionType.TOPUP, epoch, endDate);
+            BigDecimal totalExpenses = transactionRepository.sumAmountByTypeAndDateRange(
+                    TransactionType.EXPENSE, epoch, endDate);
+            filteredBalance = totalTopups.subtract(totalExpenses);
+        }
+
         // Trend data: dynamically calculate based on filters, or last 6 months by default
         java.util.List<DashboardStatsResponse.MonthlyFlow> monthlyFlows = new java.util.ArrayList<>();
         LocalDate trendStart = (startDate != null) ? startDate.withDayOfMonth(1) : today.minusMonths(5).withDayOfMonth(1);
@@ -507,6 +519,7 @@ public class TransactionService {
 
         return new DashboardStatsResponse(
                 box.getBalance(),
+                filteredBalance,
                 box.getLowThreshold(),
                 spentThisMonth,
                 currentMonthSpentCount,
@@ -517,6 +530,7 @@ public class TransactionService {
                 categorySpends
         );
     }
+
 
     public List<PettyCashTransaction> getFilteredTransactions(
             LocalDate startDate,

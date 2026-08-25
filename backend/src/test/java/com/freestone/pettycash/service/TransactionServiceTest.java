@@ -1048,5 +1048,89 @@ class TransactionServiceTest {
         org.assertj.core.api.Assertions.assertThatCode(() -> transactionService.recordTransaction(req4, "payer@example.com", null, null, null))
                 .doesNotThrowAnyException();
     }
+
+    // ============================================================
+    // TDD: filteredBalance — historical reconstructed cash-in-hand
+    // ============================================================
+
+    @Test
+    @DisplayName("getDashboardStats returns null filteredBalance when no date filter is applied")
+    @Transactional
+    void getDashboardStatsReturnsNullFilteredBalanceWhenNoFilter() {
+        // When no date range is provided, filteredBalance should be null
+        // so the frontend shows the live cashbox balance
+        DashboardStatsResponse stats = transactionService.getDashboardStats(null, null);
+
+        assertThat(stats.filteredBalance()).isNull();
+        // Live balance is always present
+        assertThat(stats.balance()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("getDashboardStats returns reconstructed filteredBalance when endDate is provided")
+    @Transactional
+    void getDashboardStatsReturnsReconstructedFilteredBalance() throws Exception {
+        // Setup: cashbox starts at 0, seed with topups and expenses across months
+        CashBox box = cashBoxRepository.findById(1L).orElseThrow();
+        box.setBalance(BigDecimal.ZERO);
+        cashBoxRepository.save(box);
+
+        LocalDate july1 = LocalDate.of(2026, 7, 1);
+        LocalDate july15 = LocalDate.of(2026, 7, 15);
+        LocalDate aug5 = LocalDate.of(2026, 8, 5);
+
+        // July 1: TOPUP ₹10,000
+        transactionService.recordTransaction(new TransactionRequest(
+                TransactionType.TOPUP, BigDecimal.valueOf(10000),
+                "July Topup", july1, "Bank", null, null,
+                "Voc-fb-1", "Freestone Technologies LLP"
+        ), "admin@example.com", null, null, null);
+
+        // July 15: EXPENSE ₹3,000
+        transactionService.recordTransaction(new TransactionRequest(
+                TransactionType.EXPENSE, BigDecimal.valueOf(3000),
+                "July Expense", july15, "Vendor X",
+                testCategory.getId(), null,
+                "Voc-fb-2", "Freestone Technologies LLP"
+        ), "admin@example.com", null, null, null);
+
+        // Aug 5: TOPUP ₹5,000
+        transactionService.recordTransaction(new TransactionRequest(
+                TransactionType.TOPUP, BigDecimal.valueOf(5000),
+                "Aug Topup", aug5, "Bank", null, null,
+                "Voc-fb-3", "Freestone Technologies LLP"
+        ), "admin@example.com", null, null, null);
+
+        // Filter: Last Month (July) → endDate = July 31
+        // Expected filteredBalance = 10000 (topup) - 3000 (expense) = 7000
+        LocalDate july31 = LocalDate.of(2026, 7, 31);
+        DashboardStatsResponse julyStats = transactionService.getDashboardStats(july1, july31);
+
+        assertThat(julyStats.filteredBalance()).isNotNull();
+        assertThat(julyStats.filteredBalance()).isEqualByComparingTo(BigDecimal.valueOf(7000));
+
+        // Filter: This Month (Aug 1 → Aug 5)
+        // Expected filteredBalance = 10000 - 3000 + 5000 = 12000
+        DashboardStatsResponse augStats = transactionService.getDashboardStats(aug5, aug5);
+
+        assertThat(augStats.filteredBalance()).isNotNull();
+        assertThat(augStats.filteredBalance()).isEqualByComparingTo(BigDecimal.valueOf(12000));
+
+        // No filter → filteredBalance should be null
+        DashboardStatsResponse allStats = transactionService.getDashboardStats(null, null);
+        assertThat(allStats.filteredBalance()).isNull();
+    }
+
+    @Test
+    @DisplayName("getDashboardStats filteredBalance is zero when no transactions exist before endDate")
+    @Transactional
+    void getDashboardStatsFilteredBalanceZeroWhenNoTransactions() {
+        // No transactions recorded, filter to some arbitrary date
+        LocalDate someDate = LocalDate.of(2025, 1, 1);
+        DashboardStatsResponse stats = transactionService.getDashboardStats(someDate, someDate);
+
+        assertThat(stats.filteredBalance()).isNotNull();
+        assertThat(stats.filteredBalance()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
 }
 

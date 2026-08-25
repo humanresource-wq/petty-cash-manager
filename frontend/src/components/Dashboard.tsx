@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { calculateDatesForPeriod, getPeriodLabel } from '../lib/dateUtils';
 import { api } from '../api/client';
 import type {
   TransactionResponse,
@@ -166,40 +167,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
     setCurrentPage(1);
   }, [searchQuery, filterType, filterCategory, filterStartDate, filterEndDate, filterCompany]);
 
-  const calculateDatesForPeriod = (period: string) => {
-    const today = new Date();
-    let start = '';
-    let end = '';
-
-    const formatDate = (d: Date) => d.toISOString().split('T')[0];
-
-    if (period === 'thisMonth') {
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-      start = formatDate(firstDay);
-      end = formatDate(today);
-    } else if (period === 'lastMonth') {
-      const firstDayLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-      start = formatDate(firstDayLastMonth);
-      end = formatDate(lastDayLastMonth);
-    } else if (period === 'last3Months') {
-      const firstDay3MonthsAgo = new Date(today.getFullYear(), today.getMonth() - 2, 1);
-      start = formatDate(firstDay3MonthsAgo);
-      end = formatDate(today);
-    } else if (period === 'last6Months') {
-      const firstDay6MonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1);
-      start = formatDate(firstDay6MonthsAgo);
-      end = formatDate(today);
-    } else if (period === 'all') {
-      start = '';
-      end = '';
-    }
-    return { start, end };
-  };
+  // Debounce ref for custom date picker — prevents firing API on every keystroke
+  const customDateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pendingStartDate, setPendingStartDate] = useState<string>('');
+  const [pendingEndDate, setPendingEndDate] = useState<string>('');
 
   const handleDatePeriodChange = (newPeriod: string) => {
     setDatePeriod(newPeriod);
-    if (newPeriod !== 'custom') {
+    if (newPeriod === 'custom') {
+      // When switching to custom, initialize pending dates from current filter
+      setPendingStartDate(filterStartDate);
+      setPendingEndDate(filterEndDate);
+    } else {
       const { start, end } = calculateDatesForPeriod(newPeriod);
       setFilterStartDate(start);
       setFilterEndDate(end);
@@ -207,13 +186,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
   };
 
   const handleStartDateChange = (val: string) => {
-    setFilterStartDate(val);
+    setPendingStartDate(val);
     setDatePeriod('custom');
+    // Debounce: wait 500ms after last change before applying
+    if (customDateDebounceRef.current) clearTimeout(customDateDebounceRef.current);
+    customDateDebounceRef.current = setTimeout(() => {
+      setFilterStartDate(val);
+      setFilterEndDate(pendingEndDate);
+    }, 500);
   };
 
   const handleEndDateChange = (val: string) => {
-    setFilterEndDate(val);
+    setPendingEndDate(val);
     setDatePeriod('custom');
+    // Debounce: wait 500ms after last change before applying
+    if (customDateDebounceRef.current) clearTimeout(customDateDebounceRef.current);
+    customDateDebounceRef.current = setTimeout(() => {
+      setFilterStartDate(pendingStartDate);
+      setFilterEndDate(val);
+    }, 500);
   };
 
   // Modals
@@ -444,9 +435,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
 
 
   // --- Derived Calculations ---
-  const currentMonthName = () => {
-    return new Date().toLocaleDateString('en-IN', { month: 'long' });
-  };
+  const periodLabel = useMemo(() => {
+    return getPeriodLabel(datePeriod, filterStartDate, filterEndDate);
+  }, [datePeriod, filterStartDate, filterEndDate]);
+
+  const displayBalance = useMemo(() => {
+    if (!dashboardStats) return 0;
+    // When a filter is active and filteredBalance is available, show historical balance
+    // When no filter (All Time), show live cashbox balance
+    if (datePeriod !== 'all' && dashboardStats.filteredBalance != null) {
+      return dashboardStats.filteredBalance;
+    }
+    return dashboardStats.balance;
+  }, [dashboardStats, datePeriod]);
 
   const currentMonthSpent = () => {
     return dashboardStats?.currentMonthSpent ?? 0;
@@ -656,7 +657,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                       <span className="text-[10px] text-slate-500 font-bold uppercase select-none">From</span>
                       <input
                         type="date"
-                        value={filterStartDate}
+                        value={pendingStartDate}
                         onChange={(e) => handleStartDateChange(e.target.value)}
                         onClick={(e) => {
                           try { e.currentTarget.showPicker(); } catch {}
@@ -666,7 +667,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                       <span className="text-[10px] text-slate-500 font-bold uppercase select-none">To</span>
                       <input
                         type="date"
-                        value={filterEndDate}
+                        value={pendingEndDate}
                         onChange={(e) => handleEndDateChange(e.target.value)}
                         onClick={(e) => {
                           try { e.currentTarget.showPicker(); } catch {}
@@ -694,13 +695,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                   <div className="relative overflow-hidden bg-gradient-to-br from-indigo-700 to-purple-800 rounded-xl p-5 shadow-lg flex flex-col justify-between min-h-[110px] group">
                     <div className="absolute right-[-20px] top-[-20px] w-24 h-24 rounded-full bg-white/10 group-hover:scale-115 transition duration-300"></div>
                     <span className="text-[10px] font-bold text-white/70 uppercase tracking-widest">
-                      Cash in Hand
+                      Cash in Hand{datePeriod !== 'all' ? ` · ${periodLabel}` : ''}
                     </span>
                     <h3 className="text-2xl font-extrabold text-white tracking-tight mt-2">
-                      ₹{cashbox.balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      ₹{displayBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </h3>
                     <span className="text-[10px] text-white/80 font-medium mt-1 select-none">
-                      {cashbox.balance < cashbox.lowThreshold ? (
+                      {datePeriod !== 'all' ? (
+                        <span className="text-indigo-200">Historical balance as of filter end date</span>
+                      ) : cashbox.balance < cashbox.lowThreshold ? (
                         <span className="text-amber-300 font-bold animate-pulse">
                           ⚠️ Below ₹{cashbox.lowThreshold.toLocaleString()} warning
                         </span>
@@ -712,25 +715,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
 
                   <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between min-h-[110px]">
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                      Spent · {currentMonthName()}
+                      Spent · {periodLabel}
                     </span>
                     <h3 className="text-2xl font-extrabold text-red-500 tracking-tight mt-2">
                       ₹{currentMonthSpent().toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </h3>
                     <span className="text-[10px] text-slate-400 mt-1 font-medium">
-                      Month-to-date claim payments
+                      {datePeriod === 'all' ? 'Total claim payments' : 'Period claim payments'}
                     </span>
                   </div>
 
                   <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between min-h-[110px]">
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                      Replenished · {currentMonthName()}
+                      Replenished · {periodLabel}
                     </span>
                     <h3 className="text-2xl font-extrabold text-emerald-500 tracking-tight mt-2">
                       ₹{currentMonthAdded().toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </h3>
                     <span className="text-[10px] text-slate-400 mt-1 font-medium">
-                      Month-to-date cash additions
+                      {datePeriod === 'all' ? 'Total cash additions' : 'Period cash additions'}
                     </span>
                   </div>
                 </div>
@@ -969,7 +972,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                       <span className="text-[10px] text-slate-500 font-bold uppercase select-none">From</span>
                       <input
                         type="date"
-                        value={filterStartDate}
+                        value={pendingStartDate}
                         onChange={(e) => handleStartDateChange(e.target.value)}
                         onClick={(e) => {
                           try { e.currentTarget.showPicker(); } catch {}
@@ -979,7 +982,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                       <span className="text-[10px] text-slate-500 font-bold uppercase select-none">To</span>
                       <input
                         type="date"
-                        value={filterEndDate}
+                        value={pendingEndDate}
                         onChange={(e) => handleEndDateChange(e.target.value)}
                         onClick={(e) => {
                           try { e.currentTarget.showPicker(); } catch {}

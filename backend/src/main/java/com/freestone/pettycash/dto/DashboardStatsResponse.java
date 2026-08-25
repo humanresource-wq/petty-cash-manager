@@ -5,6 +5,7 @@ import java.util.List;
 
 public record DashboardStatsResponse(
     BigDecimal balance,
+    BigDecimal filteredBalance,
     BigDecimal lowThreshold,
     BigDecimal currentMonthSpent,
     long currentMonthSpentCount,

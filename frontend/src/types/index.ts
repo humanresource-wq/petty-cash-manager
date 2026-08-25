@@ -79,6 +79,7 @@ export interface AppConfig {
 
 export interface DashboardStatsResponse {
   balance: number;
+  filteredBalance: number | null;
   lowThreshold: number;
   currentMonthSpent: number;
   currentMonthSpentCount: number;
