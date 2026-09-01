@@ -117,7 +117,7 @@ public class ReportService {
             summaryTable.setWidthPercentage(100);
             summaryTable.setSpacingAfter(24);
 
-            summaryTable.addCell(createSummaryCell("TOTAL REPLENISHMENTS", "₹" + totalAdded, metaLabelFont, metaValueFont, Color.decode("#f0fdf4"), Color.decode("#bbf7d0")));
+            summaryTable.addCell(createSummaryCell("TOTAL CASH RECEIVED", "₹" + totalAdded, metaLabelFont, metaValueFont, Color.decode("#f0fdf4"), Color.decode("#bbf7d0")));
             summaryTable.addCell(createSummaryCell("TOTAL SPENT", "₹" + totalSpent, metaLabelFont, metaValueFont, Color.decode("#fef2f2"), Color.decode("#fecaca")));
             summaryTable.addCell(createSummaryCell("NET MOVEMENT", "₹" + netChange, metaLabelFont, metaValueFont, Color.decode("#f0f9ff"), Color.decode("#bae6fd")));
             summaryTable.addCell(createSummaryCell("TRANSACTION COUNT", String.valueOf(list.size()), metaLabelFont, metaValueFont, Color.decode("#f8fafc"), Color.decode("#e2e8f0")));
@@ -125,12 +125,12 @@ public class ReportService {
             document.add(summaryTable);
 
             // 3. Transactions Table
-            PdfPTable table = new PdfPTable(new float[]{1.8f, 1.1f, 1.4f, 1.4f, 1.4f, 2.3f, 0.8f, 1.0f});
+            PdfPTable table = new PdfPTable(new float[]{1.6f, 1.0f, 1.2f, 1.2f, 1.4f, 1.4f, 2.0f, 0.7f, 1.0f});
             table.setWidthPercentage(100);
             table.setSpacingAfter(30);
 
             // Table headers
-            String[] headers = {"Date & Time", "Tx No", "Voucher No", "Company", "Category", "Description", "Type", "Amount"};
+            String[] headers = {"Date & Time", "Tx No", "Voucher No", "Company", "Payee/Vendor", "Category", "Description", "Type", "Amount"};
             for (String header : headers) {
                 PdfPCell cell = new PdfPCell(new Paragraph(header, tableHeaderFont));
                 cell.setBackgroundColor(Color.decode("#1e293b"));
@@ -152,6 +152,8 @@ public class ReportService {
                 table.addCell(createTableCell(t.getVoucherNumber() != null ? t.getVoucherNumber() : "—", tableBodyFont, false, false));
                 // Company
                 table.addCell(createTableCell(t.getCompany() != null ? t.getCompany() : "—", tableBodyFont, false, false));
+                // Payee/Vendor
+                table.addCell(createTableCell(t.getPayee() != null ? t.getPayee() : "—", tableBodyFont, false, false));
                 // Category
                 String cat = t.getCategory() != null ? t.getCategory().getName() : "—";
                 if (t.getSubcategory() != null) {
@@ -169,7 +171,7 @@ public class ReportService {
 
             if (list.isEmpty()) {
                 PdfPCell emptyCell = new PdfPCell(new Paragraph("No matching transactions recorded inside this date scope.", tableBodyFont));
-                emptyCell.setColspan(8);
+                emptyCell.setColspan(9);
                 emptyCell.setPadding(12);
                 emptyCell.setHorizontalAlignment(Element.ALIGN_CENTER);
                 emptyCell.setBorderColor(Color.decode("#cbd5e1"));

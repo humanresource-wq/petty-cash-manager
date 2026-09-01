@@ -2,8 +2,10 @@ package com.freestone.pettycash.service;
 
 import com.freestone.pettycash.model.PettyCashTransaction;
 import com.freestone.pettycash.model.TransactionType;
+import com.freestone.pettycash.repository.TransactionRepository;
 import com.lowagie.text.*;
 import com.lowagie.text.pdf.*;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,7 +20,10 @@ import java.awt.Color;
 
 @Service
 @Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class CustomReportService {
+
+    private final TransactionRepository transactionRepository;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
@@ -26,6 +31,30 @@ public class CustomReportService {
     public static class MonthSummary {
         public BigDecimal totalSpent = BigDecimal.ZERO;
         public BigDecimal totalAdded = BigDecimal.ZERO;
+    }
+
+    private BigDecimal calculateInitialBalance(LocalDate start, String filterCompany, String filterCategory, TransactionType type, String search) {
+        if (start == null || transactionRepository == null) {
+            return BigDecimal.ZERO;
+        }
+        String searchParam = (search == null || search.isBlank()) ? null : "%" + search.trim().toLowerCase() + "%";
+        List<PettyCashTransaction> priorList = transactionRepository.findFilteredList(
+                null, false,
+                start.minusDays(1), true,
+                filterCompany != null && !filterCompany.isBlank() ? filterCompany.trim() : null, filterCompany != null && !filterCompany.isBlank(),
+                filterCategory != null && !filterCategory.isBlank() ? filterCategory.trim() : null, filterCategory != null && !filterCategory.isBlank(),
+                type, type != null,
+                searchParam, searchParam != null);
+
+        BigDecimal initial = BigDecimal.ZERO;
+        for (PettyCashTransaction pt : priorList) {
+            if (pt.getType() == TransactionType.TOPUP) {
+                initial = initial.add(pt.getAmount());
+            } else if (pt.getType() == TransactionType.EXPENSE) {
+                initial = initial.subtract(pt.getAmount());
+            }
+        }
+        return initial;
     }
 
     public byte[] generateCsvCustomReport(List<PettyCashTransaction> list, LocalDate start, LocalDate end, String filterCompany, String filterCategory, TransactionType type, String search) {
@@ -69,11 +98,11 @@ public class CustomReportService {
             List<String> catList = new ArrayList<>(compCats);
 
             // Print Header
-            csv.append("Date,Particulars");
+            csv.append("Date,Voucher No,Particulars,Vendor/Payee");
             for (String cat : catList) {
                 csv.append(",").append(escapeCsvField(cat + " A/C"));
             }
-            csv.append(",Replenishments A/C\n");
+            csv.append(",Cash Received\n");
 
             // Print Rows & Accumulate Totals
             Map<String, BigDecimal> catTotals = new HashMap<>();
@@ -81,7 +110,9 @@ public class CustomReportService {
 
             for (PettyCashTransaction t : compList) {
                 csv.append(t.getDate().toString()).append(",")
-                   .append(escapeCsvField(t.getDescription()));
+                   .append(escapeCsvField(t.getVoucherNumber() != null ? t.getVoucherNumber() : "")).append(",")
+                   .append(escapeCsvField(t.getDescription())).append(",")
+                   .append(escapeCsvField(t.getPayee() != null ? t.getPayee() : ""));
 
                 for (String cat : catList) {
                     if (t.getType() == TransactionType.EXPENSE && t.getCategory() != null && cat.equals(t.getCategory().getName())) {
@@ -102,7 +133,7 @@ public class CustomReportService {
             }
 
             // Print Totals Row
-            csv.append("TOTAL,");
+            csv.append("TOTAL,,,");
             for (String cat : catList) {
                 csv.append(",").append(catTotals.getOrDefault(cat, BigDecimal.ZERO).toString());
             }
@@ -111,7 +142,7 @@ public class CustomReportService {
 
         // 3. Monthly Breakdown
         csv.append("--- MONTHLY STATISTICS ---\n");
-        csv.append("Month,Total Spent (Expense),Total Added (Top-up)\n");
+        csv.append("Month,Opening Balance,Total Added (Top-up),Total Amount Received,Total Spent (Expense),Cash in Hand\n");
 
         Map<String, MonthSummary> monthlySummary = new TreeMap<>();
         DateTimeFormatter monthFormatter = DateTimeFormatter.ofPattern("yyyy-MM");
@@ -125,11 +156,19 @@ public class CustomReportService {
             }
         }
 
+        BigDecimal runningBalance = calculateInitialBalance(start, filterCompany, filterCategory, type, search);
+
         for (String month : monthlySummary.keySet()) {
             MonthSummary summary = monthlySummary.get(month);
+            BigDecimal openingBalanceForMonth = runningBalance;
+            BigDecimal totalAmountReceived = openingBalanceForMonth.add(summary.totalAdded);
+            runningBalance = runningBalance.add(summary.totalAdded).subtract(summary.totalSpent);
             csv.append(month).append(",")
+               .append(openingBalanceForMonth.toString()).append(",")
+               .append(summary.totalAdded.toString()).append(",")
+               .append(totalAmountReceived.toString()).append(",")
                .append(summary.totalSpent.toString()).append(",")
-               .append(summary.totalAdded.toString()).append("\n");
+               .append(runningBalance.toString()).append("\n");
         }
         csv.append("\n");
 
@@ -229,7 +268,7 @@ public class CustomReportService {
             Font metaLabelFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, Color.decode("#475569"));
             Font metaValueFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, Color.decode("#0f172a"));
 
-            overviewTable.addCell(createSummaryCell("TOTAL REPLENISHMENTS", "₹" + totalAdded, metaLabelFont, metaValueFont, Color.decode("#f0fdf4"), Color.decode("#bbf7d0")));
+            overviewTable.addCell(createSummaryCell("TOTAL CASH RECEIVED", "₹" + totalAdded, metaLabelFont, metaValueFont, Color.decode("#f0fdf4"), Color.decode("#bbf7d0")));
             overviewTable.addCell(createSummaryCell("TOTAL SPENT", "₹" + totalSpent, metaLabelFont, metaValueFont, Color.decode("#fef2f2"), Color.decode("#fecaca")));
             overviewTable.addCell(createSummaryCell("NET MOVEMENT", "₹" + netChange, metaLabelFont, metaValueFont, Color.decode("#f0f9ff"), Color.decode("#bae6fd")));
             overviewTable.addCell(createSummaryCell("TRANSACTION COUNT", String.valueOf(list.size()), metaLabelFont, metaValueFont, Color.decode("#f8fafc"), Color.decode("#e2e8f0")));
@@ -275,12 +314,14 @@ public class CustomReportService {
                     }
                     List<String> catList = new ArrayList<>(compCats);
 
-                    int numCols = 2 + catList.size() + 1; // Date, Particulars, Category columns, Replenishments
+                    int numCols = 4 + catList.size() + 1; // Date, Voucher No, Particulars, Vendor/Payee, Categories, Cash Received
                     float[] colWidths = new float[numCols];
-                    colWidths[0] = 1.4f; // Date
-                    colWidths[1] = 2.4f; // Particulars
-                    for (int i = 2; i < numCols; i++) {
-                        colWidths[i] = 1.2f; // categories and topups
+                    colWidths[0] = 1.2f; // Date
+                    colWidths[1] = 1.2f; // Voucher No
+                    colWidths[2] = 2.0f; // Particulars
+                    colWidths[3] = 1.4f; // Vendor/Payee
+                    for (int i = 4; i < numCols; i++) {
+                        colWidths[i] = 1.2f; // categories and cash received
                     }
 
                     PdfPTable table = new PdfPTable(colWidths);
@@ -289,11 +330,13 @@ public class CustomReportService {
 
                     // Headers
                     table.addCell(createTableHeaderCell("Date", tableHeaderFont, Element.ALIGN_LEFT));
+                    table.addCell(createTableHeaderCell("Voucher No", tableHeaderFont, Element.ALIGN_LEFT));
                     table.addCell(createTableHeaderCell("Particulars", tableHeaderFont, Element.ALIGN_LEFT));
+                    table.addCell(createTableHeaderCell("Vendor/Payee", tableHeaderFont, Element.ALIGN_LEFT));
                     for (String cat : catList) {
                         table.addCell(createTableHeaderCell(cat + " A/C", tableHeaderFont, Element.ALIGN_RIGHT));
                     }
-                    table.addCell(createTableHeaderCell("Replenishment A/C", tableHeaderFont, Element.ALIGN_RIGHT));
+                    table.addCell(createTableHeaderCell("Cash Received", tableHeaderFont, Element.ALIGN_RIGHT));
 
                     // Rows & Totals accumulators
                     Map<String, BigDecimal> catTotals = new HashMap<>();
@@ -301,7 +344,9 @@ public class CustomReportService {
 
                     for (PettyCashTransaction t : compList) {
                         table.addCell(createTableCell(t.getDate().toString(), tableBodyFont, false, Element.ALIGN_LEFT));
+                        table.addCell(createTableCell(t.getVoucherNumber() != null ? t.getVoucherNumber() : "—", tableBodyFont, false, Element.ALIGN_LEFT));
                         table.addCell(createTableCell(t.getDescription(), tableBodyFont, false, Element.ALIGN_LEFT));
+                        table.addCell(createTableCell(t.getPayee() != null ? t.getPayee() : "—", tableBodyFont, false, Element.ALIGN_LEFT));
 
                         for (String cat : catList) {
                             if (t.getType() == TransactionType.EXPENSE && t.getCategory() != null && cat.equals(t.getCategory().getName())) {
@@ -325,9 +370,8 @@ public class CustomReportService {
                     totalLabelCell.setBackgroundColor(Color.decode("#f8fafc"));
                     totalLabelCell.setPadding(4);
                     totalLabelCell.setBorderColor(Color.decode("#cbd5e1"));
+                    totalLabelCell.setColspan(4);
                     table.addCell(totalLabelCell);
-
-                    table.addCell(createEmptyTotalCell()); // empty cell for Particulars column
 
                     for (String cat : catList) {
                         BigDecimal val = catTotals.getOrDefault(cat, BigDecimal.ZERO);
@@ -362,11 +406,11 @@ public class CustomReportService {
                 noMonthData.setSpacingAfter(18);
                 document.add(noMonthData);
             } else {
-                PdfPTable monthTable = new PdfPTable(new float[]{2.0f, 2.0f, 2.0f, 2.0f});
+                PdfPTable monthTable = new PdfPTable(new float[]{1.6f, 1.6f, 1.6f, 1.8f, 1.8f, 1.6f});
                 monthTable.setWidthPercentage(100);
                 monthTable.setSpacingAfter(18);
 
-                String[] mHeaders = {"Month Period", "Total Spent (Expenses)", "Total Added (Top-ups)", "Net Balance Flow"};
+                String[] mHeaders = {"Month Period", "Opening Balance", "Total Added (Top-ups)", "Total Amt Received", "Total Spent (Expenses)", "Cash in Hand"};
                 for (String header : mHeaders) {
                     PdfPCell cell = new PdfPCell(new Paragraph(header, tableHeaderFont));
                     cell.setBackgroundColor(Color.decode("#475569"));
@@ -376,18 +420,20 @@ public class CustomReportService {
                     monthTable.addCell(cell);
                 }
 
+                BigDecimal runningBalancePdf = calculateInitialBalance(start, filterCompany, filterCategory, type, search);
+
                 for (String month : monthlySummary.keySet()) {
                     MonthSummary summary = monthlySummary.get(month);
-                    BigDecimal net = summary.totalAdded.subtract(summary.totalSpent);
-                    
+                    BigDecimal openingBalanceForMonth = runningBalancePdf;
+                    BigDecimal totalAmountReceived = openingBalanceForMonth.add(summary.totalAdded);
+                    runningBalancePdf = runningBalancePdf.add(summary.totalAdded).subtract(summary.totalSpent);
+
                     monthTable.addCell(createTableCell(month, tableBodyFont, false, Element.ALIGN_LEFT));
-                    monthTable.addCell(createTableCell("₹" + summary.totalSpent.toString(), tableBodyFont, false, Element.ALIGN_RIGHT));
+                    monthTable.addCell(createTableCell("₹" + openingBalanceForMonth.toString(), tableBodyFont, false, Element.ALIGN_RIGHT));
                     monthTable.addCell(createTableCell("₹" + summary.totalAdded.toString(), tableBodyFont, false, Element.ALIGN_RIGHT));
-                    
-                    String netText = (net.compareTo(BigDecimal.ZERO) >= 0 ? "+" : "") + "₹" + net;
-                    Color netColor = net.compareTo(BigDecimal.ZERO) >= 0 ? Color.decode("#16a34a") : Color.decode("#dc2626");
-                    Font netFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 7, netColor);
-                    monthTable.addCell(createTableCell(netText, netFont, false, Element.ALIGN_RIGHT));
+                    monthTable.addCell(createTableCell("₹" + totalAmountReceived.toString(), boldBodyFont, false, Element.ALIGN_RIGHT));
+                    monthTable.addCell(createTableCell("₹" + summary.totalSpent.toString(), tableBodyFont, false, Element.ALIGN_RIGHT));
+                    monthTable.addCell(createTableCell("₹" + runningBalancePdf.toString(), boldBodyFont, false, Element.ALIGN_RIGHT));
                 }
 
                 document.add(monthTable);
@@ -427,14 +473,6 @@ public class CustomReportService {
         cell.setBorderColor(Color.decode("#93c5fd"));
         cell.setHorizontalAlignment(alignment);
         cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        return cell;
-    }
-
-    private PdfPCell createEmptyTotalCell() {
-        PdfPCell cell = new PdfPCell(new Paragraph("", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 7)));
-        cell.setBackgroundColor(Color.decode("#f8fafc"));
-        cell.setPadding(4);
-        cell.setBorderColor(Color.decode("#cbd5e1"));
         return cell;
     }
 

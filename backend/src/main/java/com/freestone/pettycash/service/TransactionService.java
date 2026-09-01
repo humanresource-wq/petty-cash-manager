@@ -450,6 +450,31 @@ public class TransactionService {
                 .map(PettyCashTransaction::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        // Compute reconstructed historical balance when a date filter is active
+        // filteredBalance = SUM(all TOPUPs from epoch to endDate) - SUM(all EXPENSEs from epoch to endDate)
+        BigDecimal filteredBalance = null;
+        if (endDate != null) {
+            LocalDate epoch = LocalDate.of(1970, 1, 1);
+            BigDecimal totalTopups = transactionRepository.sumAmountByTypeAndDateRange(
+                    TransactionType.TOPUP, epoch, endDate);
+            BigDecimal totalExpenses = transactionRepository.sumAmountByTypeAndDateRange(
+                    TransactionType.EXPENSE, epoch, endDate);
+            filteredBalance = totalTopups.subtract(totalExpenses);
+        }
+
+        // Compute opening balance (prior-period cumulative balance before startDate)
+        // This makes the math transparent: openingBalance + periodAdded - periodSpent = filteredBalance
+        BigDecimal openingBalance = null;
+        if (startDate != null) {
+            LocalDate epoch = LocalDate.of(1970, 1, 1);
+            LocalDate dayBeforeStart = startDate.minusDays(1);
+            BigDecimal priorTopups = transactionRepository.sumAmountByTypeAndDateRange(
+                    TransactionType.TOPUP, epoch, dayBeforeStart);
+            BigDecimal priorExpenses = transactionRepository.sumAmountByTypeAndDateRange(
+                    TransactionType.EXPENSE, epoch, dayBeforeStart);
+            openingBalance = priorTopups.subtract(priorExpenses);
+        }
+
         // Trend data: dynamically calculate based on filters, or last 6 months by default
         java.util.List<DashboardStatsResponse.MonthlyFlow> monthlyFlows = new java.util.ArrayList<>();
         LocalDate trendStart = (startDate != null) ? startDate.withDayOfMonth(1) : today.minusMonths(5).withDayOfMonth(1);
@@ -505,18 +530,26 @@ public class TransactionService {
                 .sorted((a, b) -> b.value().compareTo(a.value()))
                 .toList();
 
+        // Compute totalAmountReceived = openingBalance + periodAdded (display-only derived field for tally)
+        BigDecimal totalAmountReceived = (openingBalance != null ? openingBalance : BigDecimal.ZERO)
+                .add(addedThisMonth);
+
         return new DashboardStatsResponse(
                 box.getBalance(),
+                filteredBalance,
+                openingBalance,
                 box.getLowThreshold(),
                 spentThisMonth,
                 currentMonthSpentCount,
                 addedThisMonth,
+                totalAmountReceived,
                 pendingReceiptsCount,
                 pendingReceiptsValue,
                 monthlyFlows,
                 categorySpends
         );
     }
+
 
     public List<PettyCashTransaction> getFilteredTransactions(
             LocalDate startDate,
