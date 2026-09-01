@@ -142,7 +142,7 @@ public class CustomReportService {
 
         // 3. Monthly Breakdown
         csv.append("--- MONTHLY STATISTICS ---\n");
-        csv.append("Month,Total Spent (Expense),Total Added (Top-up),Cash in Hand\n");
+        csv.append("Month,Opening Balance,Total Added (Top-up),Total Amount Received,Total Spent (Expense),Cash in Hand\n");
 
         Map<String, MonthSummary> monthlySummary = new TreeMap<>();
         DateTimeFormatter monthFormatter = DateTimeFormatter.ofPattern("yyyy-MM");
@@ -160,10 +160,14 @@ public class CustomReportService {
 
         for (String month : monthlySummary.keySet()) {
             MonthSummary summary = monthlySummary.get(month);
+            BigDecimal openingBalanceForMonth = runningBalance;
+            BigDecimal totalAmountReceived = openingBalanceForMonth.add(summary.totalAdded);
             runningBalance = runningBalance.add(summary.totalAdded).subtract(summary.totalSpent);
             csv.append(month).append(",")
-               .append(summary.totalSpent.toString()).append(",")
+               .append(openingBalanceForMonth.toString()).append(",")
                .append(summary.totalAdded.toString()).append(",")
+               .append(totalAmountReceived.toString()).append(",")
+               .append(summary.totalSpent.toString()).append(",")
                .append(runningBalance.toString()).append("\n");
         }
         csv.append("\n");
@@ -402,11 +406,11 @@ public class CustomReportService {
                 noMonthData.setSpacingAfter(18);
                 document.add(noMonthData);
             } else {
-                PdfPTable monthTable = new PdfPTable(new float[]{1.6f, 2.0f, 2.0f, 1.8f, 2.0f});
+                PdfPTable monthTable = new PdfPTable(new float[]{1.6f, 1.6f, 1.6f, 1.8f, 1.8f, 1.6f});
                 monthTable.setWidthPercentage(100);
                 monthTable.setSpacingAfter(18);
 
-                String[] mHeaders = {"Month Period", "Total Spent (Expenses)", "Total Added (Top-ups)", "Net Balance Flow", "Cash in Hand"};
+                String[] mHeaders = {"Month Period", "Opening Balance", "Total Added (Top-ups)", "Total Amt Received", "Total Spent (Expenses)", "Cash in Hand"};
                 for (String header : mHeaders) {
                     PdfPCell cell = new PdfPCell(new Paragraph(header, tableHeaderFont));
                     cell.setBackgroundColor(Color.decode("#475569"));
@@ -420,18 +424,15 @@ public class CustomReportService {
 
                 for (String month : monthlySummary.keySet()) {
                     MonthSummary summary = monthlySummary.get(month);
-                    BigDecimal net = summary.totalAdded.subtract(summary.totalSpent);
+                    BigDecimal openingBalanceForMonth = runningBalancePdf;
+                    BigDecimal totalAmountReceived = openingBalanceForMonth.add(summary.totalAdded);
                     runningBalancePdf = runningBalancePdf.add(summary.totalAdded).subtract(summary.totalSpent);
 
                     monthTable.addCell(createTableCell(month, tableBodyFont, false, Element.ALIGN_LEFT));
-                    monthTable.addCell(createTableCell("₹" + summary.totalSpent.toString(), tableBodyFont, false, Element.ALIGN_RIGHT));
+                    monthTable.addCell(createTableCell("₹" + openingBalanceForMonth.toString(), tableBodyFont, false, Element.ALIGN_RIGHT));
                     monthTable.addCell(createTableCell("₹" + summary.totalAdded.toString(), tableBodyFont, false, Element.ALIGN_RIGHT));
-                    
-                    String netText = (net.compareTo(BigDecimal.ZERO) >= 0 ? "+" : "") + "₹" + net;
-                    Color netColor = net.compareTo(BigDecimal.ZERO) >= 0 ? Color.decode("#16a34a") : Color.decode("#dc2626");
-                    Font netFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 7, netColor);
-                    monthTable.addCell(createTableCell(netText, netFont, false, Element.ALIGN_RIGHT));
-
+                    monthTable.addCell(createTableCell("₹" + totalAmountReceived.toString(), boldBodyFont, false, Element.ALIGN_RIGHT));
+                    monthTable.addCell(createTableCell("₹" + summary.totalSpent.toString(), tableBodyFont, false, Element.ALIGN_RIGHT));
                     monthTable.addCell(createTableCell("₹" + runningBalancePdf.toString(), boldBodyFont, false, Element.ALIGN_RIGHT));
                 }
 

@@ -1064,6 +1064,8 @@ class TransactionServiceTest {
         assertThat(stats.filteredBalance()).isNull();
         // Live balance is always present
         assertThat(stats.balance()).isNotNull();
+        // totalAmountReceived = (null openingBalance → 0) + currentMonthAdded
+        assertThat(stats.totalAmountReceived()).isEqualByComparingTo(stats.currentMonthAdded());
     }
 
     @Test
@@ -1108,6 +1110,9 @@ class TransactionServiceTest {
 
         assertThat(julyStats.filteredBalance()).isNotNull();
         assertThat(julyStats.filteredBalance()).isEqualByComparingTo(BigDecimal.valueOf(7000));
+        // totalAmountReceived for July = openingBalance(0) + added(10000) = 10000
+        assertThat(julyStats.totalAmountReceived()).isEqualByComparingTo(
+                julyStats.openingBalance().add(julyStats.currentMonthAdded()));
 
         // Filter: This Month (Aug 1 → Aug 5)
         // Expected filteredBalance = 10000 - 3000 + 5000 = 12000
@@ -1115,6 +1120,9 @@ class TransactionServiceTest {
 
         assertThat(augStats.filteredBalance()).isNotNull();
         assertThat(augStats.filteredBalance()).isEqualByComparingTo(BigDecimal.valueOf(12000));
+        // totalAmountReceived for Aug = openingBalance(7000) + added(5000) = 12000
+        assertThat(augStats.totalAmountReceived()).isEqualByComparingTo(
+                augStats.openingBalance().add(augStats.currentMonthAdded()));
 
         // No filter → filteredBalance should be null
         DashboardStatsResponse allStats = transactionService.getDashboardStats(null, null);
@@ -1131,6 +1139,66 @@ class TransactionServiceTest {
 
         assertThat(stats.filteredBalance()).isNotNull();
         assertThat(stats.filteredBalance()).isEqualByComparingTo(BigDecimal.ZERO);
+        // totalAmountReceived = openingBalance(0) + added(0) = 0
+        assertThat(stats.totalAmountReceived()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    @DisplayName("getDashboardStats openingBalance is null when no startDate filter")
+    @Transactional
+    void getDashboardStatsReturnsNullOpeningBalanceWhenNoFilter() {
+        DashboardStatsResponse stats = transactionService.getDashboardStats(null, null);
+        assertThat(stats.openingBalance()).isNull();
+    }
+
+    @Test
+    @DisplayName("getDashboardStats openingBalance equals prior-period balance when startDate is set")
+    @Transactional
+    void getDashboardStatsReturnsOpeningBalanceFromPriorTransactions() throws Exception {
+        LocalDate june1 = LocalDate.of(2026, 6, 1);
+        DashboardStatsResponse initialStats = transactionService.getDashboardStats(june1, june1);
+        BigDecimal baseOpening = initialStats.openingBalance() != null ? initialStats.openingBalance() : BigDecimal.ZERO;
+
+        // Create June transactions (prior period)
+        LocalDate june15 = LocalDate.of(2026, 6, 15);
+        LocalDate june20 = LocalDate.of(2026, 6, 20);
+
+        transactionService.recordTransaction(new TransactionRequest(
+                TransactionType.TOPUP, BigDecimal.valueOf(10000),
+                "June Topup", june15, "Bank", null, null,
+                "Voc-ob-1", "Freestone Technologies LLP"
+        ), "admin@example.com", null, null, null);
+
+        transactionService.recordTransaction(new TransactionRequest(
+                TransactionType.EXPENSE, BigDecimal.valueOf(2000),
+                "June Expense", june20, "Swiggy",
+                testCategory.getId(), null,
+                "Voc-ob-2", "Freestone Technologies LLP"
+        ), "admin@example.com", null, null, null);
+
+        // Create July transactions (filtered period)
+        LocalDate july1 = LocalDate.of(2026, 7, 1);
+        LocalDate july31 = LocalDate.of(2026, 7, 31);
+
+        transactionService.recordTransaction(new TransactionRequest(
+                TransactionType.TOPUP, BigDecimal.valueOf(5000),
+                "July Topup", july1, "Bank", null, null,
+                "Voc-ob-3", "Freestone Technologies LLP"
+        ), "admin@example.com", null, null, null);
+
+        // Filter: July 1 – July 31
+        // openingBalance = baseOpening + 10000 (June topup) - 2000 (June expense)
+        DashboardStatsResponse julyStats = transactionService.getDashboardStats(july1, july31);
+
+        assertThat(julyStats.openingBalance()).isNotNull();
+        assertThat(julyStats.openingBalance()).isEqualByComparingTo(baseOpening.add(BigDecimal.valueOf(8000)));
+
+        // filteredBalance at end of July = baseOpening + 10000 - 2000 + 5000
+        assertThat(julyStats.filteredBalance()).isEqualByComparingTo(baseOpening.add(BigDecimal.valueOf(13000)));
+
+        // totalAmountReceived = openingBalance + periodAdded(5000 July topup)
+        assertThat(julyStats.totalAmountReceived()).isEqualByComparingTo(
+                julyStats.openingBalance().add(julyStats.currentMonthAdded()));
     }
 }
 

@@ -64,10 +64,10 @@ class CustomReportServiceTest {
         assertThat(csvContent).contains("VOC-102");
         assertThat(csvContent).contains("Staples Vendor");
 
-        // 3. Verify Monthly Statistics has Cash in Hand column
-        assertThat(csvContent).contains("Month,Total Spent (Expense),Total Added (Top-up),Cash in Hand");
-        // 2026-07 stats: Spent 2500, Added 10000 -> Cash in Hand 7500
-        assertThat(csvContent).contains("2026-07,2500,10000,7500");
+        // 3. Verify Monthly Statistics has updated columns with Total Amount Received
+        assertThat(csvContent).contains("Month,Opening Balance,Total Added (Top-up),Total Amount Received,Total Spent (Expense),Cash in Hand");
+        // 2026-07 stats: Opening 0, Added 10000, Received (0+10000)=10000, Spent 2500 -> Cash in Hand 7500
+        assertThat(csvContent).contains("2026-07,0,10000,10000,2500,7500");
     }
 
     @Test

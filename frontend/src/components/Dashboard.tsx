@@ -690,7 +690,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                 </div>
 
                 {/* Stats Metric Cards Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {/* Balance HERO metric */}
                   <div className="relative overflow-hidden bg-gradient-to-br from-indigo-700 to-purple-800 rounded-xl p-5 shadow-lg flex flex-col justify-between min-h-[110px] group">
                     <div className="absolute right-[-20px] top-[-20px] w-24 h-24 rounded-full bg-white/10 group-hover:scale-115 transition duration-300"></div>
@@ -701,7 +701,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                       ₹{displayBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </h3>
                     <span className="text-[10px] text-white/80 font-medium mt-1 select-none">
-                      {datePeriod !== 'all' ? (
+                      {datePeriod !== 'all' && dashboardStats?.openingBalance != null ? (
+                        <span className="text-indigo-200">
+                          Opening: ₹{dashboardStats.openingBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          {' '}· Net: {(currentMonthAdded() - currentMonthSpent()) >= 0 ? '+' : ''}₹{(currentMonthAdded() - currentMonthSpent()).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </span>
+                      ) : datePeriod !== 'all' ? (
                         <span className="text-indigo-200">Historical balance as of filter end date</span>
                       ) : cashbox.balance < cashbox.lowThreshold ? (
                         <span className="text-amber-300 font-bold animate-pulse">
@@ -710,6 +715,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                       ) : (
                         'Available inside cash drawer'
                       )}
+                    </span>
+                  </div>
+
+                  {/* Total Amount Received metric */}
+                  <div className="relative overflow-hidden bg-slate-900 border border-cyan-900/40 rounded-xl p-5 flex flex-col justify-between min-h-[110px] group">
+                    <div className="absolute right-[-20px] top-[-20px] w-24 h-24 rounded-full bg-cyan-500/5 group-hover:scale-115 transition duration-300"></div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                      Total Amt Received · {periodLabel}
+                    </span>
+                    <h3 className="text-2xl font-extrabold text-cyan-400 tracking-tight mt-2">
+                      ₹{(dashboardStats?.totalAmountReceived ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </h3>
+                    <span className="text-[10px] text-slate-400 mt-1 font-medium">
+                      Opening + Replenished
                     </span>
                   </div>
 
