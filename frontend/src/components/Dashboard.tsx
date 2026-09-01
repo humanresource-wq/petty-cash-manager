@@ -167,8 +167,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
     setCurrentPage(1);
   }, [searchQuery, filterType, filterCategory, filterStartDate, filterEndDate, filterCompany]);
 
-  // Debounce ref for custom date picker — prevents firing API on every keystroke
-  const customDateDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Pending custom date state — only committed when user clicks "Apply"
   const [pendingStartDate, setPendingStartDate] = useState<string>('');
   const [pendingEndDate, setPendingEndDate] = useState<string>('');
 
@@ -185,27 +184,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
     }
   };
 
-  const handleStartDateChange = (val: string) => {
-    setPendingStartDate(val);
-    setDatePeriod('custom');
-    // Debounce: wait 500ms after last change before applying
-    if (customDateDebounceRef.current) clearTimeout(customDateDebounceRef.current);
-    customDateDebounceRef.current = setTimeout(() => {
-      setFilterStartDate(val);
-      setFilterEndDate(pendingEndDate);
-    }, 500);
+  // Apply custom dates — only fires API when user explicitly clicks the button
+  const handleApplyCustomDates = () => {
+    setFilterStartDate(pendingStartDate);
+    setFilterEndDate(pendingEndDate);
   };
 
-  const handleEndDateChange = (val: string) => {
-    setPendingEndDate(val);
-    setDatePeriod('custom');
-    // Debounce: wait 500ms after last change before applying
-    if (customDateDebounceRef.current) clearTimeout(customDateDebounceRef.current);
-    customDateDebounceRef.current = setTimeout(() => {
-      setFilterStartDate(pendingStartDate);
-      setFilterEndDate(val);
-    }, 500);
-  };
+  // Check if pending dates differ from applied dates (show Apply button)
+  const hasPendingDateChanges = datePeriod === 'custom' && (
+    pendingStartDate !== filterStartDate || pendingEndDate !== filterEndDate
+  );
 
   // Modals
   const [isTxModalOpen, setIsTxModalOpen] = useState<boolean>(false);
@@ -658,7 +646,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                       <input
                         type="date"
                         value={pendingStartDate}
-                        onChange={(e) => handleStartDateChange(e.target.value)}
+                        onChange={(e) => { setPendingStartDate(e.target.value); setDatePeriod('custom'); }}
                         onClick={(e) => {
                           try { e.currentTarget.showPicker(); } catch {}
                         }}
@@ -668,12 +656,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                       <input
                         type="date"
                         value={pendingEndDate}
-                        onChange={(e) => handleEndDateChange(e.target.value)}
+                        onChange={(e) => { setPendingEndDate(e.target.value); setDatePeriod('custom'); }}
                         onClick={(e) => {
                           try { e.currentTarget.showPicker(); } catch {}
                         }}
                         className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
                       />
+                      <button
+                        type="button"
+                        onClick={handleApplyCustomDates}
+                        disabled={!pendingStartDate && !pendingEndDate}
+                        className={`ml-1 font-bold text-xs py-1 px-3 rounded-md transition active:scale-[0.96] ${
+                          hasPendingDateChanges
+                            ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 animate-pulse'
+                            : 'bg-indigo-600/80 text-white/90 hover:bg-indigo-500'
+                        }`}
+                        title="Apply selected date range"
+                      >
+                        Apply
+                      </button>
                     </div>
                   )}
 
@@ -992,7 +993,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                       <input
                         type="date"
                         value={pendingStartDate}
-                        onChange={(e) => handleStartDateChange(e.target.value)}
+                        onChange={(e) => { setPendingStartDate(e.target.value); setDatePeriod('custom'); }}
                         onClick={(e) => {
                           try { e.currentTarget.showPicker(); } catch {}
                         }}
@@ -1002,12 +1003,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onLogout, con
                       <input
                         type="date"
                         value={pendingEndDate}
-                        onChange={(e) => handleEndDateChange(e.target.value)}
+                        onChange={(e) => { setPendingEndDate(e.target.value); setDatePeriod('custom'); }}
                         onClick={(e) => {
                           try { e.currentTarget.showPicker(); } catch {}
                         }}
                         className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
                       />
+                      <button
+                        type="button"
+                        onClick={handleApplyCustomDates}
+                        disabled={!pendingStartDate && !pendingEndDate}
+                        className={`ml-1 font-bold text-xs py-1 px-3 rounded-md transition active:scale-[0.96] ${
+                          hasPendingDateChanges
+                            ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 animate-pulse'
+                            : 'bg-indigo-600/80 text-white/90 hover:bg-indigo-500'
+                        }`}
+                        title="Apply selected date range"
+                      >
+                        Apply
+                      </button>
                     </div>
                   )}
 
